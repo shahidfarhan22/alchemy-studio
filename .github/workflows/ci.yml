@@ -69,10 +69,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Typecheck
-        run: npx tsc --noEmit
-
-      - name: Build
+      # `next build` runs a full TypeScript typecheck as part of itself --
+      # a standalone `tsc --noEmit` here is redundant AND broken on a fresh
+      # checkout: it needs .next/types/ (e.g. the ambient LayoutProps type),
+      # which only exists after a build has run at least once. Found this
+      # the hard way on the first real CI run -- passed locally (where a
+      # build had already run) but failed fresh in Actions.
+      - name: Build (includes typecheck)
         env:
           NEXT_PUBLIC_API_URL: http://localhost:5007
         run: npm run build

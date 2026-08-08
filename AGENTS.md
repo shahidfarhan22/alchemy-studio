@@ -22,8 +22,7 @@ _To be filled in as each part of the stack is scaffolded (M0):_
 | Run frontend tests | TBD — no test runner added yet |
 | Run backend tests | `cd backend && dotnet test` (unit tests only so far — real-Postgres integration tests need Docker or a dedicated test DB, see docs/progress.md) |
 | Lint frontend | `cd frontend && npm run lint` |
-| Typecheck frontend | `cd frontend && npx tsc --noEmit` |
-| Build frontend | `cd frontend && npm run build` |
+| Build frontend (includes typecheck) | `cd frontend && npm run build` — `next build` runs a full TypeScript check itself; don't run `tsc --noEmit` standalone on a fresh checkout, it needs `.next/types/` which only exists after a build has run at least once (found this breaking CI, see docs/progress.md) |
 | Migrate DB | `dotnet ef migrations add <Name>` / `dotnet ef database update` (from `backend/src/AlchemyStudio.Api`) — migrations auto-apply on startup in Development only (see Program.cs); explicit step in staging/production |
 | Seed DB | Admin account auto-seeds on startup in Development from `Admin:Email`/`Admin:Password` user-secrets, if no account exists yet — see `Data/AdminSeeder.cs` |
 | Build backend | `cd backend && dotnet build` |
