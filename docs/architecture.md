@@ -76,4 +76,10 @@ Every incoming request gets a correlation ID (generated if not supplied via head
 
 ## Environments
 
-Development (local, Docker Compose) → Staging (test-mode Razorpay keys, sandboxed email) → Production. See `docs/deployment.md` (written at M9) for promotion process.
+Development (local, native Postgres — see ADR-008) → Staging (test-mode Razorpay keys, sandboxed email) → Production. See `docs/deployment.md` (written at M9) for promotion process.
+
+## Forward-looking note: cookie domain constraint at deployment (M9)
+
+The refresh-token cookie is `HttpOnly; SameSite=Lax`, no `Domain` attribute (defaults to the exact host that set it). This works locally because `localhost:3000` and `localhost:5007`, despite being different origins (different ports), are the same **site** (browsers ignore port for SameSite purposes) — verified directly by simulating cross-origin requests with curl during M1.
+
+**This breaks if frontend and backend end up on unrelated domains in production** (e.g. `alchemy-studio.vercel.app` + `something.up.railway.app`) — a genuinely cross-site fetch would need `SameSite=None; Secure`, and even then some browsers restrict third-party cookies further. **Simplest fix, decide at M9:** host frontend and backend as subdomains of the same registrable domain (e.g. `app.<domain>` + `api.<domain>`) — same-site, no cookie changes needed, and better for SEO/branding anyway.
