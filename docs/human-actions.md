@@ -6,7 +6,7 @@ Things only Zee can do. Status: `pending` / `done` / `blocked`.
 
 | # | Action | Why | Status |
 |---|---|---|---|
-| 1 | Install .NET 10 SDK: `winget install Microsoft.DotNet.SDK.10`, verify with `dotnet --list-sdks` in a new terminal | Current SDKs (8.0.204, 8.0.406) are on the .NET 8 line, EOL 10 Nov 2026. Installs side by side, nothing breaks. | pending |
+| 1 | Install .NET 10 SDK | Current SDKs (8.0.204, 8.0.406) were on the .NET 8 line, EOL 10 Nov 2026. | done — 10.0.302 installed alongside the existing SDKs |
 | 2 | ~~Start Docker Desktop~~ — no longer needed for local DB | Superseded by ADR-008: using existing native PostgreSQL 17 instead of a Docker container. Docker Desktop may still matter later (CI/deployment) but isn't a blocker now. | done (moot) |
 | 3 | Create a GitHub account and enable 2FA | Repo hosting + CI/CD. | done — `shahidfarhan22` |
 | 4 | Install GitHub CLI and authenticate (`gh auth login`) | Lets me create repos, PRs, and manage the project from the terminal. | done |
