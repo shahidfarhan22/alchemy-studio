@@ -1,9 +1,9 @@
 # Progress Log
 
 ## Current state
-- Phase: M0 — Repo & tooling setup
-- Last completed milestone: none yet (repo/docs/GitHub/DB setup done; app skeletons not yet scaffolded)
-- Next milestone: M0 — scaffold Next.js frontend + ASP.NET Core backend, wire backend to the local Postgres DB
+- Phase: M1 — Auth (register / login / roles)
+- Last completed milestone: M0 — Repo & tooling setup (merged via PR #1-#4)
+- Next milestone: M1 — see `docs/product-plan.md`
 
 ## Environment
 - Repo path: `D:\New Project`, branch `main`. GitHub: [shahidfarhan22/alchemy-studio](https://github.com/shahidfarhan22/alchemy-studio) (public)
@@ -87,6 +87,35 @@
 
 ### What is unverified
 - Frontend and backend haven't yet been run *together* (i.e., a page on the frontend actually calling the API) — there's no API-calling code yet, that starts at M1.
+
+## Session 2026-08-09 (continued) — M1 backend (auth) implemented
+
+### What changed
+- Added ASP.NET Core Identity: `ApplicationUser` (Guid keys, `DisplayName`, `MustChangePassword`), `Admin`/`Customer` roles, `RefreshToken` entity (hash-only storage).
+- `AuthController`/`AuthService`/`TokenService`: register, login, refresh, logout, change-password, `/me`. JWT access tokens (15 min), refresh tokens rotated on every use with reuse-detection (a replayed old token revokes the user's entire active token chain). Refresh token delivered via `HttpOnly`/`SameSite=Lax` cookie scoped to `/api/v1/auth`.
+- `ApiException`/`GlobalExceptionHandler` extended to map typed exceptions to specific error-envelope codes/status, not just a generic 500 — reusable by every future feature area, not auth-specific.
+- Per-IP rate limiting (10 req/min) on all auth endpoints via `[EnableRateLimiting]`, scoped to `AuthController` only (an earlier version accidentally applied it globally to `MapControllers()`, which would have throttled every future endpoint — caught before committing).
+- `AdminSeeder`: creates roles + first admin from `Admin:Email`/`Admin:Password` config on Development startup, `MustChangePassword = true`, never a hardcoded password.
+- First EF Core migration (`InitialIdentity`), applied automatically on Development startup only (explicit step in staging/prod, per `docs/architecture.md`).
+- Fixed an EF tool/runtime version mismatch (`dotnet-ef` 9.0.2 vs runtime 10.0.10) by updating the global tool.
+- Reconciled three implementation details against the original hardening rules, logged as ADR-009: Identity's built-in PBKDF2 hasher instead of Argon2id/bcrypt; registration is not fully enumeration-safe (needs email confirmation, deferred to M7) while login/refresh are; per-IP + Identity lockout instead of true progressive-delay throttling.
+
+### What was verified, and how (all via direct curl testing against the running API, VERIFIED)
+- `dotnet build`: 0 warnings, 0 errors. `dotnet list package --vulnerable --include-transitive`: clean.
+- Migration applied and admin seeded on startup — confirmed in app logs ("Seeded first admin account: ...").
+- Register → 200 with access token + refresh cookie (`HttpOnly`, `Path=/api/v1/auth`, `SameSite=Lax`, no `Secure` in dev — inspected raw `Set-Cookie` header, not just assumed).
+- Duplicate registration → 409 `EMAIL_ALREADY_REGISTERED`.
+- Login with wrong password AND login with a nonexistent email → identical 401 `INVALID_CREDENTIALS` (enumeration-safety check).
+- Refresh via cookie → 200, new token issued.
+- **Refresh-token reuse detection**: replayed a rotated-away token → 401 `REFRESH_TOKEN_REUSE_DETECTED`, AND confirmed the legitimately-rotated new token was also revoked as a defensive measure (the actual security property this whole scheme exists for).
+- Admin login with the temp seeded password → `mustChangePassword: true` in response. Called change-password → 204. Old password then rejected (401), new password works with `mustChangePassword: false`.
+- Rate limiter: hammered login 15x rapidly → mix of 401/429 (limiter is live; couldn't get a clean "10-then-blocked" demo since prior testing in the same 1-minute window had already used most of the budget — noted as a real observation, not glossed over).
+- Test server stopped after verification (`Stop-Process`).
+
+### What is unverified
+- No automated tests written yet for auth (AGENTS.md says tests for money/auth/permissions come first — this is a gap worth closing before M2, flagged as a follow-up, not silently skipped).
+- Frontend auth UI (login/register pages, token handling) — not built yet, next up.
+- Behavior under concurrent refresh requests (two tabs refreshing simultaneously) — not stress-tested.
 
 ## Human actions still needed before M0 completes
 See `docs/human-actions.md` for the full list and status.

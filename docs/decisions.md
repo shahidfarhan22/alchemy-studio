@@ -83,3 +83,26 @@ Lightweight ADRs: context → options → decision → consequences → date. Ne
 **Consequences:** a dedicated database (`alchemy_studio`) and login role (`alchemy_app`) were created inside the existing instance, isolated from any other databases already on it (e.g. `enabl_db`, unrelated to this project). Local dev connection string points at `localhost:5432`, not a container. `docs/human-actions.md`'s "start Docker Desktop" item is removed as a blocker for M0.
 **Incident during this change:** re-running the Postgres installer (to check for pgAdmin) was cancelled mid-way, temporarily removing the Windows service and `bin\` folder (data directory was untouched). Re-running the installer to completion restored it. Separately, the postgres superuser password from the original 2025-07-01 install was unknown/forgotten and was reset via a temporary `trust`-auth edit to `pg_hba.conf` (reverted immediately after, verified back to `scram-sha-256`).
 **Date:** 2026-08-09
+
+---
+
+## ADR-009 — M1 auth implementation: three refinements to ADR-005
+
+**Context:** implementing M1 surfaced three places where the letter of the original hardening rules (`AGENTS.md`, ADR-005) needed a judgment call.
+
+1. **Password hashing: ASP.NET Core Identity's built-in hasher (PBKDF2-HMAC-SHA256), not Argon2id/bcrypt as ADR-005 stated.**
+   **Options:** (a) Identity's default `PasswordHasher<TUser>`; (b) swap in a custom `IPasswordHasher<T>` using Argon2id via a third-party package (e.g. Konscious.Security.Cryptography).
+   **Decision:** (a). Identity's default is PBKDF2-HMAC-SHA256 with a high iteration count — NIST SP 800-63B-approved, not the same thing as the "SHA-family alone" AGENTS.md warns against (that referred to unsalted single-round hashing). It's also the dependency-policy default: platform/stdlib over an added package. Argon2id is arguably marginally stronger, but not enough to justify a third-party crypto dependency for a project this size.
+   **Consequences:** `AGENTS.md`'s password-hashing line should be read as "Identity's default hasher (PBKDF2), not Argon2id/bcrypt" going forward.
+
+2. **Registration is not fully enumeration-safe, despite AGENTS.md saying "login, registration, and password-reset must not reveal whether an email exists."**
+   **Context:** true enumeration-safety on registration needs an email-confirmation step ("check your inbox either way") — which needs working email, deferred to M7.
+   **Decision:** registration returns a clear `EMAIL_ALREADY_REGISTERED` error for now. **Login and refresh are fully enumeration-safe** (generic error, matched timing via a dummy password check when the account doesn't exist).
+   **Consequences:** revisit registration's response once M7 adds email — switch to a generic "check your inbox" response for both outcomes.
+
+3. **Account throttling is per-IP rate limiting + Identity's built-in (hard) lockout, not true "progressive delay" as AGENTS.md's ideal states.**
+   **Decision:** per-IP: 10 requests/minute fixed window on all `/api/v1/auth/*` endpoints. Per-account: Identity's default lockout (5 failed attempts → 5 minute lockout). A hand-built progressive-delay scheme (increasing wait per failure) is more correct per AGENTS.md but meaningfully more code for a launch-stage MVP.
+   **Consequences:** acceptable for now; revisit if real credential-stuffing abuse is observed (matches the project's general "add defenses when abuse is observed, not preemptively" posture — see SEO/bot-protection section of `MASTER-PROMPT.md` §20).
+
+**Also implemented, matching AGENTS.md exactly (no deviation):** refresh tokens stored only as a hash, rotated on every use, reuse triggers revocation of the entire active token chain for that user (verified: replaying a rotated-away token both fails *and* kills the legitimately-rotated session, forcing re-login). Access tokens are 15-minute JWTs; refresh tokens live in an `HttpOnly; SameSite=Lax` cookie scoped to `/api/v1/auth` (`Secure` added automatically outside Development). First admin seeded from `Admin:Email`/`Admin:Password` config (never hardcoded), `MustChangePassword` forced true, verified end-to-end (temp password login → forced-change flag → change-password → old password rejected, new one works).
+**Date:** 2026-08-09
