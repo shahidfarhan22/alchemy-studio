@@ -24,10 +24,11 @@ _To be filled in as each part of the stack is scaffolded (M0):_
 | Lint frontend | `cd frontend && npm run lint` |
 | Typecheck frontend | `cd frontend && npx tsc --noEmit` |
 | Build frontend | `cd frontend && npm run build` |
-| Migrate DB | `dotnet ef migrations add <Name>` / `dotnet ef database update` (from `backend/src/AlchemyStudio.Api`) — no migrations yet, `AppDbContext` has no entities until M1/M2 |
-| Seed DB | TBD — added at M2 |
+| Migrate DB | `dotnet ef migrations add <Name>` / `dotnet ef database update` (from `backend/src/AlchemyStudio.Api`) — migrations auto-apply on startup in Development only (see Program.cs); explicit step in staging/production |
+| Seed DB | Admin account auto-seeds on startup in Development from `Admin:Email`/`Admin:Password` user-secrets, if no account exists yet — see `Data/AdminSeeder.cs` |
 | Build backend | `cd backend && dotnet build` |
 | Set backend DB secret (local, one-time) | `dotnet user-secrets set "ConnectionStrings:Default" "Host=localhost;Port=5432;Database=alchemy_studio;Username=alchemy_app;Password=YOUR_PASSWORD"` from `backend/src/AlchemyStudio.Api` |
+| Set JWT/admin secrets (local, one-time) | `dotnet user-secrets set "Jwt:SigningKey" "..."`, `"Admin:Email" "..."`, `"Admin:Password" "..."` — same location as above |
 
 ## Core rules
 

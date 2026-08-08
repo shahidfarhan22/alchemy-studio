@@ -14,18 +14,18 @@ See `docs/requirements.md` for the underlying requirements this plan implements.
 
 Each milestone is independently implementable, testable, and committable. None is "done" until every Definition of Done box is checked (see `MASTER-PROMPT.md` §2).
 
-### M0 — Repo & tooling setup
+### M0 — Repo & tooling setup — ✅ DONE (2026-08-09)
 **Goal:** a working local dev environment both of us can run.
-**Files touched:** `.gitignore`, `.env.example`, `docker-compose.yml`, `frontend/`, `backend/`, `docs/`, `AGENTS.md`, `README.md`
+**Files touched:** `.gitignore`, `.env.example`, `frontend/`, `backend/`, `docs/`, `AGENTS.md`, `README.md`
 **Depends on:** —
 **Definition of Done:**
   - [x] Git repo initialized, `main` branch
-  - [ ] Frontend (Next.js) and backend (ASP.NET Core) skeletons run locally
-  - [ ] Postgres runs via Docker Compose
-  - [ ] `docs/*` planning docs in place
-  - [ ] Verified by Zee — how: clone-equivalent check (fresh `docker compose up`, both apps reachable)
+  - [x] Frontend (Next.js) and backend (ASP.NET Core) skeletons run locally
+  - [x] Postgres runs locally — via native install, not Docker Compose (see ADR-008; plan changed mid-milestone once an existing native Postgres 17 was found)
+  - [x] `docs/*` planning docs in place
+  - [x] Verified by Zee — how: ran `dotnet build`/`dotnet run` and `npm run build`/`npm run dev` himself, confirmed http://localhost:5007/health/ready and http://localhost:3000 both working in his own browser; also verified the DB health check by stopping/starting the Postgres service and watching it flip unhealthy/healthy
 **Estimated effort:** S
-**Risk:** local tooling gaps (SDK versions, Docker) — see `docs/human-actions.md`
+**Risk:** local tooling gaps (SDK versions, Docker) — see `docs/human-actions.md`. Materialized as a Postgres install hiccup (see ADR-008), resolved.
 
 ### M1 — Auth (register / login / roles)
 **Goal:** customers and the admin can register, log in, and log out securely.
