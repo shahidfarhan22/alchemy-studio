@@ -16,13 +16,14 @@ _To be filled in as each part of the stack is scaffolded (M0):_
 
 | Action | Command |
 |---|---|
-| Run frontend (dev) | TBD — frontend not yet scaffolded |
+| Run frontend (dev) | `cd frontend && npm run dev` (serves on http://localhost:3000) |
 | Run backend (dev) | `cd backend/src/AlchemyStudio.Api && dotnet run --launch-profile http` (serves on http://localhost:5007) |
-| Run full stack + DB | Postgres runs natively (always-on Windows service, not started per-session) — see `docs/decisions.md` ADR-008 |
-| Run frontend tests | TBD |
+| Run full stack + DB | Postgres runs natively (always-on Windows service, not started per-session) — see `docs/decisions.md` ADR-008. Run frontend and backend dev commands above in separate terminals. |
+| Run frontend tests | TBD — no test runner added yet |
 | Run backend tests | TBD — added at M1 |
-| Lint | TBD |
-| Typecheck | TBD |
+| Lint frontend | `cd frontend && npm run lint` |
+| Typecheck frontend | `cd frontend && npx tsc --noEmit` |
+| Build frontend | `cd frontend && npm run build` |
 | Migrate DB | `dotnet ef migrations add <Name>` / `dotnet ef database update` (from `backend/src/AlchemyStudio.Api`) — no migrations yet, `AppDbContext` has no entities until M1/M2 |
 | Seed DB | TBD — added at M2 |
 | Build backend | `cd backend && dotnet build` |

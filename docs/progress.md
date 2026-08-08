@@ -73,5 +73,20 @@
 - Frontend — not yet scaffolded.
 - No automated tests exist yet for the backend (expected — added starting M1, per `docs/product-plan.md`).
 
+### Later same session — frontend scaffolded, M0 essentially complete
+
+- Scaffolded `frontend/` via `create-next-app`: TypeScript, Tailwind, App Router, ESLint, `src/` layout, Turbopack.
+- Kept Next.js's own auto-generated `frontend/AGENTS.md`/`frontend/CLAUDE.md` (a real Next.js 16 feature that documents version-specific API quirks and regenerates itself via `next dev`) — doesn't conflict with the root `AGENTS.md` contract, which stays the project-wide source of truth.
+- Corrected `.env.example`: it previously implied the backend reads `DB_HOST`/`DB_PORT`/etc. from a literal `.env` file, which isn't true — the backend actually gets its connection string from `dotnet user-secrets` locally (see AGENTS.md). Rewrote it to document reality accurately instead of drifting from the actual setup.
+- Filled in the remaining real commands in `AGENTS.md` (frontend dev/lint/typecheck/build).
+
+### What was verified, and how
+- `npm run build` (VERIFIED): compiled successfully, 0 errors.
+- Ran `npm run dev` and hit `http://localhost:3000` directly (VERIFIED): 200 response. Test server stopped afterward.
+- `git status` after `git add frontend/` (VERIFIED): confirmed `node_modules/` and `.next/` correctly excluded; 19 real source/config files staged.
+
+### What is unverified
+- Frontend and backend haven't yet been run *together* (i.e., a page on the frontend actually calling the API) — there's no API-calling code yet, that starts at M1.
+
 ## Human actions still needed before M0 completes
 See `docs/human-actions.md` for the full list and status.
