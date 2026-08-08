@@ -7,9 +7,9 @@ Things only Zee can do. Status: `pending` / `done` / `blocked`.
 | # | Action | Why | Status |
 |---|---|---|---|
 | 1 | Install .NET 10 SDK: `winget install Microsoft.DotNet.SDK.10`, verify with `dotnet --list-sdks` in a new terminal | Current SDKs (8.0.204, 8.0.406) are on the .NET 8 line, EOL 10 Nov 2026. Installs side by side, nothing breaks. | pending |
-| 2 | Start Docker Desktop | Daemon was not running at last check; needed for `docker compose up` (M0) to run Postgres locally. | pending |
-| 3 | Create a GitHub account (if you don't already have one) and enable 2FA | Repo hosting + CI/CD. Free. | pending |
-| 4 | Install GitHub CLI: `winget install GitHub.cli`, then `gh auth login` (you complete the browser login step) | Lets me create the repo, open PRs, and set CI secrets from the terminal instead of walking you through the GitHub web UI each time. | pending |
+| 2 | ~~Start Docker Desktop~~ — no longer needed for local DB | Superseded by ADR-008: using existing native PostgreSQL 17 instead of a Docker container. Docker Desktop may still matter later (CI/deployment) but isn't a blocker now. | done (moot) |
+| 3 | Create a GitHub account and enable 2FA | Repo hosting + CI/CD. | done — `shahidfarhan22` |
+| 4 | Install GitHub CLI and authenticate (`gh auth login`) | Lets me create repos, PRs, and manage the project from the terminal. | done |
 | 5 | Add C# Dev Kit extension to VS Code: `code --install-extension ms-dotnettools.csdevkit` | C# editing/debugging/IntelliSense in VS Code. | pending |
 | 6 | (Optional, do while it's cheap) Upgrade Node 22 → Node 24 LTS: `winget install OpenJS.NodeJS.LTS` | Node 22 "Jod" is in maintenance, EOL April 2027. Not urgent, not a blocker. | pending |
 | 7 | (Optional) Update Docker Desktop via its own UI (Settings → Software updates) | Current version (27.5.1) is ~18 months behind on patches. | pending |

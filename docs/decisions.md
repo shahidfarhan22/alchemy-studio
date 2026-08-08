@@ -61,6 +61,7 @@ Lightweight ADRs: context → options → decision → consequences → date. Ne
 **Decision:** Docker container.
 **Consequences:** reproducible environment matching how we'd likely deploy; must watch Docker's disk usage on C: and move the disk image to D: if it drops below ~25GB free.
 **Date:** 2026-08-08
+**Superseded by:** ADR-008 (2026-08-09) — owner already had a native PostgreSQL 17 install running; decision reversed.
 
 ---
 
@@ -71,3 +72,14 @@ Lightweight ADRs: context → options → decision → consequences → date. Ne
 **Decision:** merge its verified findings into `docs/technology-stack.md` and `docs/human-actions.md`, then remove `docs/prerequisites.md`. Owner chose to continue with this (VS Code) session driving the build going forward.
 **Consequences:** avoids two documents drifting out of sync. No information was lost — see `docs/technology-stack.md` "Your machine" section and `docs/human-actions.md` items 1-8.
 **Date:** 2026-08-08
+
+---
+
+## ADR-008 — Local dev database: use existing native PostgreSQL 17, not Docker (supersedes ADR-006)
+
+**Context:** ADR-006 chose Docker for local Postgres, reasoned against "installing something new." Mid-M0, discovered the owner already had PostgreSQL 17 installed natively (`D:\postgres`, D: drive — not the C: drive that's tight on space) and running as a Windows service (`postgresql-x64-17`), pre-dating this project.
+**Options:** (a) keep using Docker anyway, running Postgres twice on the same machine; (b) switch to the existing native install.
+**Decision:** (b). With a modern (17.5), already-running native instance available, Docker's original justification (avoid a new install, reproducibility) is weaker than the cost of running Docker Desktop's background VM just to duplicate it. Docker Desktop remains installed and may still be used later (CI containers, or containerized deployment) — this decision is scoped to local dev only.
+**Consequences:** a dedicated database (`alchemy_studio`) and login role (`alchemy_app`) were created inside the existing instance, isolated from any other databases already on it (e.g. `enabl_db`, unrelated to this project). Local dev connection string points at `localhost:5432`, not a container. `docs/human-actions.md`'s "start Docker Desktop" item is removed as a blocker for M0.
+**Incident during this change:** re-running the Postgres installer (to check for pgAdmin) was cancelled mid-way, temporarily removing the Windows service and `bin\` folder (data directory was untouched). Re-running the installer to completion restored it. Separately, the postgres superuser password from the original 2025-07-01 install was unknown/forgotten and was reset via a temporary `trust`-auth edit to `pg_hba.conf` (reverted immediately after, verified back to `scram-sha-256`).
+**Date:** 2026-08-09

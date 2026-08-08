@@ -12,7 +12,7 @@
 | Payments | **Razorpay** | Supports individual-seller KYC (you don't have a registered business yet), widely used in India, solid webhook model. Cashfree is the fallback if KYC onboarding proves difficult. |
 | File storage | TBD at M2 — leaning **Cloudflare R2** (S3-compatible, no egress fees) or a managed host's built-in object storage | Decided when we pick the hosting provider, since storage often bundles with it. |
 | Email | TBD at M7 — leaning **Resend** (generous free tier, good deliverability docs) | Confirmed at that milestone. |
-| Local dev database | **Docker Compose (Postgres container)**, not a native install | Your machine has 24GB RAM and working virtualization (WSL2) — Docker is comfortable here. Keeps the environment reproducible and matches how we'd run Postgres in most hosting options. Don't install PostgreSQL natively; don't install pgAdmin — use `docker exec -it <container> psql`, or install **DBeaver** if you want a GUI. |
+| Local dev database | **Native PostgreSQL 17** (`D:\postgres`, already installed), not Docker | Reversed from the original Docker plan once we found a modern, already-running native install — see ADR-008. Dedicated role `alchemy_app` + database `alchemy_studio` created, isolated from anything else on the instance. Managed via pgAdmin 4 (already installed alongside it). |
 
 ## Your machine (assessed 2026-08-08)
 
