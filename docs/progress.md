@@ -2,17 +2,17 @@
 
 ## Current state
 - Phase: M0 — Repo & tooling setup
-- Last completed milestone: none yet
-- Next milestone: M0 — get frontend + backend skeletons running locally via Docker Compose
+- Last completed milestone: none yet (repo/docs/GitHub/DB setup done; app skeletons not yet scaffolded)
+- Next milestone: M0 — scaffold Next.js frontend + ASP.NET Core backend, wire backend to the local Postgres DB
 
 ## Environment
-- Repo path: `D:\New Project`, branch `main`, no commits yet
+- Repo path: `D:\New Project`, branch `main`. GitHub: [shahidfarhan22/alchemy-studio](https://github.com/shahidfarhan22/alchemy-studio) (public)
 - How to run locally: not yet scaffolded (M0 in progress)
-- Services running / credentials location: none yet. Local Postgres will run via Docker Compose (no credentials to manage yet — local dev password only, in gitignored `.env`)
+- Services running / credentials location: **local PostgreSQL 17** (native, `D:\postgres`, Windows service `postgresql-x64-17`) — dedicated role `alchemy_app` + database `alchemy_studio` created for this project. Credential (password) lives only in the owner's local `.env` (gitignored) and password manager — never shared in chat. See ADR-008 in `docs/decisions.md`.
 
 ## Open items
 - [ ] Blocked on: nothing currently — proceeding with M0 scaffolding
-- [ ] Deferred decision: store/brand name → affects domain, repo name, branding — see `docs/requirements.md` open items
+- [ ] Deferred decision: store/brand name → GitHub repo is named `alchemy-studio` as a working name; affects domain, branding — see `docs/requirements.md` open items
 - [ ] Deferred decision: file storage provider, email provider → decided at M2/M7 respectively (`docs/technology-stack.md`)
 - [ ] Human action pending: install .NET 10 SDK — see `docs/human-actions.md`
 
@@ -32,6 +32,27 @@
 ### What is unverified
 - Whether Docker Desktop's daemon is currently running (was down at last check — needs to be started before M0 can actually run `docker compose up`).
 - Actual frontend/backend scaffolding — not yet created, planning docs only so far.
+
+## Session 2026-08-09
+
+### What changed
+- Installed and authenticated GitHub CLI (`gh`) as `shahidfarhan22`.
+- Created public GitHub repo `alchemy-studio`, pushed initial commit via `chore/m0-initial-setup` branch + PR #1, merged by owner. Established branch/PR habit going forward per `AGENTS.md`.
+- Reversed the Docker-for-local-DB decision (ADR-006) after discovering the owner already had PostgreSQL 17 installed natively and running — see ADR-008 in `docs/decisions.md`. Created dedicated `alchemy_app` role and `alchemy_studio` database via pgAdmin's Query Tool.
+- Incident along the way: re-running the Postgres installer (owner meant to look for pgAdmin, launched the DB installer instead) was cancelled mid-way and temporarily broke the service/binaries; re-run to completion fixed it. Forgotten postgres superuser password was reset via a temporary `trust`-auth edit to `pg_hba.conf`, reverted and verified back to `scram-sha-256` immediately after.
+- Added `.env.example` with DB connection variable names (no real values).
+- Updated `docs/technology-stack.md`, `docs/human-actions.md`, `docs/decisions.md` to reflect the native-DB decision.
+
+### What was verified, and how
+- `gh auth status` (VERIFIED): logged in as `shahidfarhan22`.
+- PR #1 merge (VERIFIED): `gh pr view 1` shows `MERGED`; local `main` fast-forwarded and feature branch deleted both locally and on GitHub.
+- Postgres service health (VERIFIED): `Get-Service postgresql-x64-17` → Running; `psql --version` → 17.5; after the install incident, re-checked and confirmed restored.
+- `pg_hba.conf` correctly reverted to `scram-sha-256` (VERIFIED) after the password reset — checked file contents directly, not just assumed.
+- Database/role creation (VERIFIED by owner running the SQL in pgAdmin and confirming success): `CREATE ROLE alchemy_app ...` and `CREATE DATABASE alchemy_studio OWNER alchemy_app` both ran successfully (had to be run as two separate executions — `CREATE DATABASE` can't run combined with another statement in one batch).
+
+### What is unverified
+- Whether the backend can actually connect to `alchemy_studio` using `alchemy_app` — not yet tested, since the backend doesn't exist yet.
+- Whether .NET 10 has been installed (still shows 8.0.204 + 8.0.406 as of last check).
 
 ## Human actions still needed before M0 completes
 See `docs/human-actions.md` for the full list and status.
