@@ -27,12 +27,18 @@ Each milestone is independently implementable, testable, and committable. None i
 **Estimated effort:** S
 **Risk:** local tooling gaps (SDK versions, Docker) — see `docs/human-actions.md`. Materialized as a Postgres install hiccup (see ADR-008), resolved.
 
-### M1 — Auth (register / login / roles)
+### M1 — Auth (register / login / roles) — MOSTLY DONE, not fully closed out
 **Goal:** customers and the admin can register, log in, and log out securely.
 **Depends on:** M0
-**Definition of Done:** feature works end-to-end via UI · tests passing · error/loading/empty states handled · no new lint/type errors · docs updated · verified by Zee
+**Definition of Done:**
+  - [x] Feature works end-to-end (verified via direct API testing + cross-origin cookie proof; not yet click-tested in a real browser — see below)
+  - [~] Automated tests: unit tests written and passing (TokenService, error envelope — 13 tests). **Full integration tests (real Postgres, register/login/refresh/reuse-detection) still pending** — needs Docker or a dedicated test DB, see docs/progress.md.
+  - [x] Error + loading + empty states handled
+  - [x] No new lint/type errors
+  - [x] Docs updated
+  - [ ] **Verified by Zee** — still needed: click through register → login → logout in an actual browser
 **Estimated effort:** M
-**Risk:** getting refresh-token/cookie handling wrong is the easiest way to introduce a security bug — see AGENTS.md auth rules.
+**Risk:** getting refresh-token/cookie handling wrong is the easiest way to introduce a security bug — see AGENTS.md auth rules. Mitigated: refresh rotation + reuse-detection tested directly (see docs/progress.md 2026-08-09), and the cross-origin cookie mechanics were proven with curl, not just assumed.
 
 ### M2 — Product catalog
 **Goal:** admin can create/edit products with images and stock; customers can browse and view product detail pages.

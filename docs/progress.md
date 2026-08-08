@@ -142,4 +142,19 @@ See `docs/human-actions.md` for the full list and status.
 
 ## ⏸ ITEMS WAITING ON ZEE (running list — updated as they come up)
 
-Nothing blocking yet as of this entry. Will be updated below if anything comes up that genuinely needs his input, rather than blocking silently.
+### 1. Backend integration test database
+Wrote 13 passing **unit tests** (`backend/tests/AlchemyStudio.Api.Tests`) for token generation/validation and the error envelope — no database needed, don't need you for these. But the higher-value **integration tests** (register/login/refresh-rotation/reuse-detection against a real Postgres, matching how I manually verified auth via curl) need a real database connection I don't currently have. I started wiring up Testcontainers (spins up a throwaway Postgres in Docker per test run — the "correct" approach per our own AGENTS.md rule against in-memory test substitutes), but you closed Docker Desktop mid-session. Two options when you're back — your call:
+- **(a) Reopen Docker Desktop** and tell me — I'll finish the Testcontainers-based integration tests (no other action needed from you).
+- **(b) Skip Docker entirely**: I create a dedicated `alchemy_studio_test` database + role on your native Postgres (same pattern as `alchemy_studio`/`alchemy_app` — I'll give you one SQL command to run in pgAdmin, you pick the password, I never see it).
+
+I have a slight preference for (a) since ephemeral per-run databases are cleaner for tests (no leftover state between runs), but either is fine — not a big decision either way.
+
+## Session 2026-08-09 (continued) — autonomous session, backend unit tests
+
+### What changed
+- `backend/tests/AlchemyStudio.Api.Tests`: new xUnit project, referenced from the solution. `TokenServiceTests` (9 tests: claim mapping, expiry, cross-key/cross-audience rejection, refresh-token hashing/uniqueness) and `GlobalExceptionHandlerTests` (4 tests: ApiException mapping, validation details, generic-500 doesn't leak exception internals, missing-correlation-id fallback).
+- Removed the `Testcontainers.PostgreSql` package after Zee closed Docker Desktop mid-session — logged as item #1 above instead of blocking.
+
+### What was verified, and how
+- `dotnet test`: all 13 tests pass (VERIFIED) — and this wasn't a rubber-stamp: the first run genuinely caught a real bug in my own test code (asserted the wrong claim type name — `JwtSecurityTokenHandler` remaps `"sub"`/`"email"` to their long-form `ClaimTypes` equivalents by default). Fixed the test to match actual runtime behavior, re-ran, confirmed green. Worth noting because it's evidence these tests are actually exercising real behavior, not vacuously passing.
+- `dotnet list package --vulnerable --include-transitive` on the test project: clean.

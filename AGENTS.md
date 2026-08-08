@@ -20,7 +20,7 @@ _To be filled in as each part of the stack is scaffolded (M0):_
 | Run backend (dev) | `cd backend/src/AlchemyStudio.Api && dotnet run --launch-profile http` (serves on http://localhost:5007) |
 | Run full stack + DB | Postgres runs natively (always-on Windows service, not started per-session) — see `docs/decisions.md` ADR-008. Run frontend and backend dev commands above in separate terminals. |
 | Run frontend tests | TBD — no test runner added yet |
-| Run backend tests | TBD — added at M1 |
+| Run backend tests | `cd backend && dotnet test` (unit tests only so far — real-Postgres integration tests need Docker or a dedicated test DB, see docs/progress.md) |
 | Lint frontend | `cd frontend && npm run lint` |
 | Typecheck frontend | `cd frontend && npx tsc --noEmit` |
 | Build frontend | `cd frontend && npm run build` |
