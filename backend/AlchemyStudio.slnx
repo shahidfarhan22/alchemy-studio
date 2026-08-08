@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/AlchemyStudio.Api/AlchemyStudio.Api.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AlchemyStudio.Api.Tests/AlchemyStudio.Api.Tests.csproj" />
+  </Folder>
 </Solution>
