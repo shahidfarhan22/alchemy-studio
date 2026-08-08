@@ -1,0 +1,39 @@
+# --- secrets ---
+.env
+.env.local
+.env.*.local
+*.pfx
+*.pem
+appsettings.Development.json
+appsettings.Production.json
+appsettings.*.local.json
+
+# --- editor / OS / assistant tooling ---
+.vscode/
+.vs/
+.idea/
+.DS_Store
+Thumbs.db
+.claude/
+
+# --- Node / frontend (Next.js) ---
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/coverage/
+frontend/*.tsbuildinfo
+frontend/.env*.local
+
+# --- .NET / backend (ASP.NET Core) ---
+backend/**/bin/
+backend/**/obj/
+backend/**/*.user
+backend/**/publish/
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- logs ---
+*.log
+npm-debug.log*
