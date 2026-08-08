@@ -117,5 +117,29 @@
 - Frontend auth UI (login/register pages, token handling) — not built yet, next up.
 - Behavior under concurrent refresh requests (two tabs refreshing simultaneously) — not stress-tested.
 
+## Session 2026-08-09 (continued) — M1 frontend auth; autonomous overnight session begins
+
+**Context:** Zee went to sleep (~4 hours) and asked me to keep working autonomously on anything that doesn't need his judgment, log anything that does, and be extra careful/double-check everything since he isn't available to catch mistakes. This section covers that stretch.
+
+### What changed (frontend auth)
+- `frontend/src/lib/api-client.ts`: single typed fetch wrapper (per AGENTS.md — no scattered `fetch()` calls), parses the backend's error envelope into a typed `ApiError`, sends the access token as a bearer header and cookies via `credentials: "include"`.
+- `frontend/src/lib/auth-api.ts`, `auth-schemas.ts` (zod, mirroring backend password rules), `auth-context.tsx` (React context holding the session **in memory only** — never `localStorage`, per our own security rule — and silently attempting a refresh on page load to restore the session from the httpOnly cookie).
+- `/login`, `/register` pages; homepage now shows logged-in state or login/register links (placeholder content, not real storefront — that's M2).
+- Added `zod` (one dependency, justified in the code).
+
+### What was verified, and how (all VERIFIED directly, not assumed)
+- `npm run build` and `npm run lint`: both clean.
+- **Identified and directly tested the riskiest unverified assumption**: the frontend (`localhost:3000`) and backend (`localhost:5007`) are different origins (different ports). Reasoned through whether the httpOnly refresh cookie would actually survive that boundary (answer: yes, because browsers treat different ports as the same "site" for `SameSite` purposes, only origin/CORS differs) — then **proved it empirically** rather than trusting the reasoning alone, by replaying the exact CORS preflight + credentialed request + cookie-based refresh sequence a browser would make, using curl with an `Origin: http://localhost:3000` header. All three steps confirmed working with the correct headers.
+- Confirmed both dev servers serve the new pages correctly (200 responses, expected content in the static HTML).
+- Documented a real forward-looking risk in `docs/architecture.md`: this cookie scheme breaks if frontend/backend end up on **unrelated** domains in production (not an issue locally, or if we use subdomains of one domain at M9) — recorded now so it isn't rediscovered the hard way at deploy time.
+- Stopped both test servers after verification.
+
+### What is unverified
+- Real interactive click-through in an actual browser — I don't have a browser automation tool, only curl (which can't execute JavaScript/React). The logic has been verified as thoroughly as possible without one (cross-origin cookie mechanics proven directly; page content verified; code carefully re-read for bugs). **Flagged for Zee**: please click through register → login → logout in an actual browser when you're back, as a final sanity check.
+
 ## Human actions still needed before M0 completes
 See `docs/human-actions.md` for the full list and status.
+
+## ⏸ ITEMS WAITING ON ZEE (running list — updated as they come up)
+
+Nothing blocking yet as of this entry. Will be updated below if anything comes up that genuinely needs his input, rather than blocking silently.
