@@ -54,5 +54,24 @@
 - Whether the backend can actually connect to `alchemy_studio` using `alchemy_app` — not yet tested, since the backend doesn't exist yet.
 - Whether .NET 10 has been installed (still shows 8.0.204 + 8.0.406 as of last check).
 
+### Later same session — .NET 10 installed, backend scaffolded
+
+- Owner installed .NET 10 SDK (`10.0.302`), confirmed via `dotnet --list-sdks`.
+- Scaffolded the ASP.NET Core backend: `backend/AlchemyStudio.slnx` → `backend/src/AlchemyStudio.Api` (controller-based Web API, targeting net10.0). Removed the template's sample `WeatherForecast` files (no placeholder code in committed work, per `AGENTS.md`).
+- Fixed a known high-severity vulnerability in the template's default `Microsoft.OpenApi` transitive dependency (2.0.0 → 2.11.0) before it ever got committed.
+- Added `Npgsql.EntityFrameworkCore.PostgreSQL`, `Microsoft.EntityFrameworkCore.Design`, `Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore`.
+- Implemented the cross-cutting contracts documented in `AGENTS.md`/`docs/architecture.md` from the start rather than retrofitting later: `ErrorEnvelope`/`GlobalExceptionHandler` (standard error shape, no leaked stack traces), `CorrelationIdMiddleware` (every request gets one, flows into logs + error responses), CORS locked to the configured frontend origin (not `*`), `/health/live` and `/health/ready` (the latter actually checks DB connectivity via `AddDbContextCheck`).
+- DB connection string set up via `dotnet user-secrets` (owner ran the `set` command themselves with the real password — never shared in chat), not `.env` or any gitignored file, to keep it fully outside the repo.
+
+### What was verified, and how
+- `dotnet build` (VERIFIED): 0 warnings, 0 errors.
+- `dotnet list package --vulnerable --include-transitive` (VERIFIED): clean after the `Microsoft.OpenApi` bump.
+- Ran the API (`dotnet run --launch-profile http`) and hit both endpoints directly (VERIFIED): `GET /health/live` → 200 Healthy; `GET /health/ready` → 200 Healthy — this specifically confirms the backend successfully connected to `alchemy_studio` using the `alchemy_app` credentials, not just that the process started. Test server stopped afterward.
+- `git status` after `git add backend/` (VERIFIED): confirmed `bin/`, `obj/`, and `appsettings.Development.json` correctly excluded by `.gitignore`; no secrets staged.
+
+### What is unverified
+- Frontend — not yet scaffolded.
+- No automated tests exist yet for the backend (expected — added starting M1, per `docs/product-plan.md`).
+
 ## Human actions still needed before M0 completes
 See `docs/human-actions.md` for the full list and status.

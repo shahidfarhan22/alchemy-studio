@@ -16,16 +16,17 @@ _To be filled in as each part of the stack is scaffolded (M0):_
 
 | Action | Command |
 |---|---|
-| Run frontend (dev) | TBD at M0 |
-| Run backend (dev) | TBD at M0 |
-| Run full stack + DB | `docker compose up` (TBD at M0) |
+| Run frontend (dev) | TBD — frontend not yet scaffolded |
+| Run backend (dev) | `cd backend/src/AlchemyStudio.Api && dotnet run --launch-profile http` (serves on http://localhost:5007) |
+| Run full stack + DB | Postgres runs natively (always-on Windows service, not started per-session) — see `docs/decisions.md` ADR-008 |
 | Run frontend tests | TBD |
-| Run backend tests | TBD |
+| Run backend tests | TBD — added at M1 |
 | Lint | TBD |
 | Typecheck | TBD |
-| Migrate DB | TBD |
-| Seed DB | TBD |
-| Build | TBD |
+| Migrate DB | `dotnet ef migrations add <Name>` / `dotnet ef database update` (from `backend/src/AlchemyStudio.Api`) — no migrations yet, `AppDbContext` has no entities until M1/M2 |
+| Seed DB | TBD — added at M2 |
+| Build backend | `cd backend && dotnet build` |
+| Set backend DB secret (local, one-time) | `dotnet user-secrets set "ConnectionStrings:Default" "Host=localhost;Port=5432;Database=alchemy_studio;Username=alchemy_app;Password=YOUR_PASSWORD"` from `backend/src/AlchemyStudio.Api` |
 
 ## Core rules
 

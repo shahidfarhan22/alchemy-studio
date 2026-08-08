@@ -1,0 +1,6 @@
+@AlchemyStudio.Api_HostAddress = http://localhost:5007
+
+GET {{AlchemyStudio.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
