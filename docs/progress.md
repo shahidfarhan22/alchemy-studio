@@ -1,9 +1,9 @@
 # Progress Log
 
 ## Current state
-- Phase: M3 — Cart & checkout (not started)
+- Phase: M3 — Cart & checkout, backend done, frontend not started
 - Last completed milestone: M2 — Product catalog, backend + frontend (merged via PR #9-#11). M1 auth also functionally complete (PR #5-#6), pending Zee's real-browser click-through and the integration-test DB decision (see below).
-- Next milestone: M3 — see `docs/product-plan.md`
+- Next milestone: M3 frontend (cart page, checkout page with login gate) — see `docs/product-plan.md`
 
 ## Environment
 - Repo path: `D:\New Project`, branch `main`. GitHub: [shahidfarhan22/alchemy-studio](https://github.com/shahidfarhan22/alchemy-studio) (public)
@@ -220,3 +220,21 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 - Found uncommitted local changes to `docs/human-actions.md` that neither of us made — content was generic and badly stale (asking "what's the application idea?" as if M0 hadn't happened yet). Almost certainly the other Claude Code CLI session (first seen at the very start of this project, see ADR-007) writing to the same folder again without coordination.
 - Per `AGENTS.md`'s multi-session rule, flagged it to Zee rather than silently discarding or keeping it. He confirmed: discard. Reverted via `git checkout -- docs/human-actions.md`; nothing was lost since it was never committed.
 - **Ongoing risk, not fully solved**: this is the second time the other session has overwritten a file without warning. Worth Zee deciding, when convenient, whether to keep running both sessions against this repo or standardize on one — see `AGENTS.md`'s existing guidance ("check `git status`/`git log` for unfamiliar changes before writing files") as the current mitigation.
+
+## Session 2026-08-09 (continued) — M3 backend (cart & addresses); Zee hands-on for the migration
+
+### What changed
+- `Cart`/`CartItem` (guest carts via a cookie-tracked `AnonymousToken`, merged into the account cart on login/register) and `Address` entities, `CartService`, `AddressService`, `CartController` (not `[Authorize]` — guests need access), `AddressController` (`[Authorize]` — addresses require login). See ADR-011 for the full reasoning.
+- **Zee generated and applied the migration himself** (`dotnet ef migrations add/remove`, `dotnet ef database update`) — walked through what a migration actually is and why the EF Core warning it initially produced mattered, rather than just handing him commands to paste blindly.
+- Fixed a real EF Core warning before it became a real bug: `CartItem → Product` was configured as a "required" relationship, which conflicts with `Product`'s soft-delete query filter. Fixed with `.IsRequired(false)` on the relationship (metadata-only, doesn't change the `ProductId` column's actual nullability).
+- **Zee caught a real UX gap by asking a clarifying question**, not by testing: "what change did you make to stop a product being soft-deleted while it's in someone's cart?" — the honest answer was "none, and actually nothing currently prevents that; here's what silently happens instead" (item just vanishes from the cart). He asked for it to behave like "out of stock" instead — visible, marked unavailable, not hidden. Implemented via a new `IsAvailable` flag + querying `Products` with `.IgnoreQueryFilters()` in `CartService.ToDto()`.
+- **Found and fixed a second instance of the exact same bug while verifying the first fix**: `MergeAnonymousCartIntoUserAsync` had its own unfiltered product query (for stock-capping), which silently dropped merged items the same way. Fixed by removing quantity-capping from merge entirely — that enforcement belongs in `AddItemAsync`/`UpdateItemQuantityAsync` (which already do it), not merge, which should just honestly combine both carts.
+
+### What was verified, and how (all against the real database, VERIFIED)
+- `dotnet build`: 0 warnings/errors (including the EF Core relationship warning, confirmed gone after the fix — Zee re-ran `migrations add` himself and confirmed no warning in the output). `dotnet test`: 21/21 passing. `dotnet list package --vulnerable`: clean.
+- Migration content reviewed before Zee applied it: three clean new tables (`Addresses`, `Carts`, `CartItems`), correct FKs and unique indexes, no `xmin`-style gotchas this time (no concurrency tokens on these entities).
+- Full curl walkthrough: anonymous cart creation + cookie, add-to-cart, stock-limit enforcement (409 on exceeding stock), **the unavailable-item fix** (soft-deleted a product mid-cart, confirmed it stays visible with `isAvailable: false` instead of disappearing), **the merge-on-login fix** — tested twice: once reproducing the exact bug scenario (product deleted before login, confirmed item now survives the merge) and once with a normal available product (confirmed no regression — quantities still combine correctly). Address CRUD, validation errors, and the login requirement (401 unauthenticated) all confirmed. Test data cleaned up (soft-deleted) afterward.
+
+### What is unverified
+- Frontend cart/checkout UI — not built yet, next up. This will need the login-gate-at-checkout behavior Zee specified.
+- No automated tests for Cart/Address yet — same integration-test-database gap tracked since M1 (Docker vs. dedicated test DB decision still pending).

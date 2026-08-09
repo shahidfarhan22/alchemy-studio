@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using AlchemyStudio.Api.Cart;
 using AlchemyStudio.Api.ErrorHandling;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,7 @@ namespace AlchemyStudio.Api.Auth;
 [ApiController]
 [Route("api/v1/auth")]
 [EnableRateLimiting("auth")]
-public class AuthController(AuthService authService, IWebHostEnvironment env) : ControllerBase
+public class AuthController(AuthService authService, CartService cartService, IWebHostEnvironment env) : ControllerBase
 {
     private const string RefreshCookieName = "refreshToken";
 
@@ -18,6 +19,7 @@ public class AuthController(AuthService authService, IWebHostEnvironment env) : 
     {
         var result = await authService.RegisterAsync(request);
         SetRefreshCookie(result.RawRefreshToken);
+        await MergeAnonymousCartAsync(result.Response.User.Id);
         return Ok(result.Response);
     }
 
@@ -26,6 +28,7 @@ public class AuthController(AuthService authService, IWebHostEnvironment env) : 
     {
         var result = await authService.LoginAsync(request);
         SetRefreshCookie(result.RawRefreshToken);
+        await MergeAnonymousCartAsync(result.Response.User.Id);
         return Ok(result.Response);
     }
 
@@ -83,5 +86,17 @@ public class AuthController(AuthService authService, IWebHostEnvironment env) : 
             Path = "/api/v1/auth",
             Expires = DateTimeOffset.UtcNow.Add(TokenService.RefreshTokenLifetime),
         });
+    }
+
+    // If the browser was carrying a guest cart cookie, fold it into the
+    // account's cart now that we know who they are (docs/decisions.md:
+    // cart persists across login, guest -> account).
+    private async Task MergeAnonymousCartAsync(Guid userId)
+    {
+        var anonymousToken = Request.Cookies[CartController.AnonymousCookieName];
+        if (string.IsNullOrEmpty(anonymousToken)) return;
+
+        await cartService.MergeAnonymousCartIntoUserAsync(anonymousToken, userId);
+        Response.Cookies.Delete(CartController.AnonymousCookieName);
     }
 }
