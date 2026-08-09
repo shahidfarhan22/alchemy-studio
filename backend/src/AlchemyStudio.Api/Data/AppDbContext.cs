@@ -1,5 +1,6 @@
 using AlchemyStudio.Api.Addresses;
 using AlchemyStudio.Api.Catalog;
+using AlchemyStudio.Api.Orders;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<CartEntity> Carts => Set<CartEntity>();
     public DbSet<CartItemEntity> CartItems => Set<CartItemEntity>();
     public DbSet<Address> Addresses => Set<Address>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<WebhookEvent> WebhookEvents => Set<WebhookEvent>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -81,6 +86,36 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.Entity<Address>(entity =>
         {
             entity.HasIndex(a => a.UserId);
+        });
+
+        builder.Entity<Order>(entity =>
+        {
+            entity.HasIndex(o => o.UserId);
+            entity.HasIndex(o => o.RazorpayOrderId).IsUnique();
+            entity.Property(o => o.Status).HasConversion<string>();
+            entity.OwnsOne(o => o.ShippingAddress); // stored as columns on Orders, not a separate table
+
+            entity.HasMany(o => o.Items)
+                .WithOne()
+                .HasForeignKey(i => i.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<OrderItem>(entity =>
+        {
+            entity.HasIndex(i => i.OrderId);
+        });
+
+        builder.Entity<Payment>(entity =>
+        {
+            entity.HasIndex(p => p.OrderId);
+            entity.HasIndex(p => p.RazorpayPaymentId).IsUnique();
+            entity.Property(p => p.Status).HasConversion<string>();
+        });
+
+        builder.Entity<WebhookEvent>(entity =>
+        {
+            entity.HasIndex(e => e.RazorpayEventId).IsUnique(); // the actual idempotency guard
         });
     }
 }

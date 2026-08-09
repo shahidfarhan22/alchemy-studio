@@ -6,6 +6,7 @@ using AlchemyStudio.Api.Catalog;
 using AlchemyStudio.Api.Cart;
 using AlchemyStudio.Api.Data;
 using AlchemyStudio.Api.ErrorHandling;
+using AlchemyStudio.Api.Orders;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
@@ -17,7 +18,13 @@ var builder = WebApplication.CreateBuilder(args);
 var frontendOrigin = builder.Configuration["Cors:AllowedOrigin"]
     ?? throw new InvalidOperationException("Cors:AllowedOrigin is not configured.");
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    // Enums serialize as their string names ("PendingPayment"), not raw
+    // numbers -- a numeric enum in an API response is a foot-gun for any
+    // consumer (frontend or otherwise) that doesn't hardcode the same
+    // ordinal mapping. Applies to OrderStatus/PaymentStatus and any future
+    // enum in a response DTO.
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddOpenApi();
 
 builder.Services.AddCors(options =>
@@ -57,6 +64,8 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<CatalogService>();
 builder.Services.AddScoped<CartService>();
 builder.Services.AddScoped<AddressService>();
+builder.Services.AddScoped<RazorpayService>();
+builder.Services.AddScoped<OrderService>();
 
 var jwtSigningKey = builder.Configuration["Jwt:SigningKey"]
     ?? throw new InvalidOperationException("Jwt:SigningKey is not configured. See AGENTS.md.");

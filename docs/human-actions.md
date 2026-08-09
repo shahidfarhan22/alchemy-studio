@@ -27,6 +27,8 @@ Things only Zee can do. Status: `pending` / `done` / `blocked`.
 |---|---|---|---|
 | 9 | Decide on store/brand name | Needed for domain, Razorpay account name, branding, legal pages. | pending |
 | 10 | Start Razorpay individual-seller KYC (PAN, bank account/UPI for settlement) | Onboarding as an individual can take a few days — worth starting early so it's not the thing blocking launch. | pending |
+| 17 | Sign up for Razorpay, generate **test-mode** API keys (Key ID + Key Secret), store via `dotnet user-secrets` | Needed to build/test M4 payment flow — no KYC required for test mode. | done — `Razorpay:KeyId`/`Razorpay:KeySecret` set, order creation verified end-to-end against the real Razorpay test API |
+| 18 | Set up `ngrok` (or similar tunnel) to expose local backend, then configure a webhook in the Razorpay dashboard pointing at it; store the real webhook secret via `dotnet user-secrets set "Razorpay:WebhookSecret" "..."` | The webhook is how a real payment confirmation reaches us — currently only tested with a temporary, made-up local secret (see ADR-012), not a real Razorpay-issued one. | pending |
 
 ## Needed before M8 (Legal/SEO) / M10 (Launch)
 

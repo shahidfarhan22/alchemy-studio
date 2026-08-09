@@ -28,6 +28,7 @@ _To be filled in as each part of the stack is scaffolded (M0):_
 | Build backend | `cd backend && dotnet build` |
 | Set backend DB secret (local, one-time) | `dotnet user-secrets set "ConnectionStrings:Default" "Host=localhost;Port=5432;Database=alchemy_studio;Username=alchemy_app;Password=YOUR_PASSWORD"` from `backend/src/AlchemyStudio.Api` |
 | Set JWT/admin secrets (local, one-time) | `dotnet user-secrets set "Jwt:SigningKey" "..."`, `"Admin:Email" "..."`, `"Admin:Password" "..."` — same location as above |
+| Set Razorpay secrets (local, one-time) | `dotnet user-secrets set "Razorpay:KeyId" "rzp_test_..."`, `"Razorpay:KeySecret" "..."` — required. `"Razorpay:WebhookSecret" "..."` — only needed once a webhook is configured in the Razorpay dashboard (see docs/human-actions.md #18); order creation works fine without it. |
 
 ## Core rules
 

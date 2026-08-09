@@ -152,3 +152,30 @@ Lightweight ADRs: context → options → decision → consequences → date. Ne
 
 **Verified:** full manual walkthrough — anonymous cart creation, stock-limit enforcement (409 on exceeding stock), the unavailable-item display fix, the merge-on-login fix (both the buggy case with a deleted product and a normal case with an available one, to confirm no regression), address CRUD + validation + auth requirement. All against the real database, via curl.
 **Date:** 2026-08-09
+
+---
+
+## ADR-012 — M4 payments: Razorpay integration, order/payment model, two real bugs caught before shipping
+
+**Context:** M4 needed a payment provider integration. Chose Razorpay per the original requirements (India-focused, individual-seller KYC path — see `docs/requirements.md`).
+
+1. **Official Razorpay .NET SDK (`Razorpay` NuGet package), not a hand-rolled HTTP client.**
+   **Decision:** the SDK is first-party (owned by `razorpay` on NuGet/GitHub), actively maintained (pushed within weeks of this decision, 537K+ downloads), and handles the fiddly parts (HMAC signature verification for both checkout callbacks and webhooks) in a way that's easy to get subtly wrong by hand. Matches the dependency policy's "prefer one well-maintained package" over reimplementing crypto ourselves.
+   **Note:** the SDK's `Order` type collides with our own `Orders.Order` entity — aliased on import (`RazorpaySdkOrder`), not renamed our own domain entity to work around a third-party name.
+
+2. **Money/state model**: `Order`/`OrderItem` snapshot price and product name *at order time* — unlike `Cart`, which always shows live prices (ADR-011). An order must never silently reflect a later price change. `Payment.Status` follows the state machine already documented in `docs/architecture.md` (`Created → Authorized → Captured → Failed/Refunded`); `WebhookEvent` is an append-only log keyed uniquely on Razorpay's event ID, existing purely for idempotency + audit trail.
+
+3. **Stock is decremented at payment-capture time (via webhook), not at order-creation time.**
+   **Context:** `docs/architecture.md`'s concurrency guidance calls for a conditional update (`WHERE stock >= quantity`), not read-then-write — implemented via EF Core's `ExecuteUpdateAsync` with that exact condition.
+   **Decision:** deliberately *not* reserving/holding stock the moment an order is created (while payment is still pending) — an abandoned or failed checkout would otherwise lock up stock for no reason. Accepted tradeoff: a narrow race window where two customers could both have a payment captured for the last unit; if the conditional update affects 0 rows, it's logged as needing manual reconciliation rather than silently going negative or failing the already-captured payment. Acceptable for a low-volume solo store; revisit with real stock reservations only if overselling actually happens.
+
+4. **The frontend's "payment successful" moment is only ever a poll of `GET /api/v1/orders/{id}`, never a client-asserted state.**
+   **Decision:** no "verify checkout callback" endpoint. The Razorpay widget's client-side success callback is UX-only (used to start polling); the order's `Status` only ever changes inside `OrderService`, driven by the verified webhook. Matches `docs/architecture.md`: "webhooks are the source of truth, not the redirect callback" — taken literally, not just as a signature-verification exercise.
+
+**Two real bugs found and fixed before this ever reached a real Razorpay account, both caught by verifying against reality instead of trusting assumptions:**
+
+- **`RazorpayService`'s constructor required all three secrets (Key ID, Key Secret, Webhook Secret) eagerly**, even though the webhook secret doesn't exist until a webhook is configured in the Razorpay dashboard (a later step, needs `ngrok`). This broke order creation entirely with a config error, for a feature that doesn't need that secret at all. Fixed by making the webhook secret optional at construction, required only inside `VerifyWebhookSignature`.
+- **The webhook event-ID handling was wrong** — the code assumed Razorpay's webhook JSON body has a top-level `"id"` field for the event, modeled without checking. **Verified directly against Razorpay's own documentation** (fetched via WebFetch, not recalled from memory) before writing the test payload that would have exposed this: their payload has **no such field at all**; the real event identifier is the `X-Razorpay-Event-Id` **HTTP header**. As originally written, this would have made `INVALID_WEBHOOK_PAYLOAD` fire on **every single real webhook delivery**, silently breaking all payment confirmation in production. Fixed by reading the header in `PaymentsController` and threading it through as an explicit parameter instead of parsing it from the body.
+
+**Verified:** full order lifecycle against the real database and the real Razorpay test API (not a mock) — order creation (real `razorpay_order_id` returned), a hand-signed webhook payload (HMAC-SHA256 computed the same way Razorpay signs real deliveries) correctly transitioning the order to `Paid`, decrementing stock, and clearing the cart; a replayed duplicate event confirmed idempotent (no double-decrement); a tampered signature confirmed rejected. A temporary local webhook secret was set for this test — **must be replaced with the real one once the webhook is configured in the Razorpay dashboard** (needs `ngrok`, tracked as a next step).
+**Date:** 2026-08-09
