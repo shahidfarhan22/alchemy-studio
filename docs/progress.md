@@ -1,9 +1,9 @@
 # Progress Log
 
 ## Current state
-- Phase: M3 — Cart & checkout, code complete (backend PR #13 merged, frontend PR pending), needs Zee's browser verification
-- Last completed milestone: M2 — Product catalog, backend + frontend (merged via PR #9-#11). M1 auth also functionally complete (PR #5-#6), pending Zee's real-browser click-through and the integration-test DB decision (see below).
-- Next milestone: M4 — Payments (Razorpay), once M3's frontend is reviewed/merged
+- Phase: M4 — Payments, backend done and verified against the real Razorpay test API, frontend (checkout widget) not started
+- Last completed milestone: M3 — Cart & checkout, fully merged (PR #13, #14). M1/M2 also functionally complete, pending Zee's real-browser click-through (recurring open item, see below).
+- Next milestone: M4 frontend (Razorpay checkout widget integration) — see `docs/product-plan.md`
 
 ## Environment
 - Repo path: `D:\New Project`, branch `main`. GitHub: [shahidfarhan22/alchemy-studio](https://github.com/shahidfarhan22/alchemy-studio) (public)
@@ -255,3 +255,31 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 
 ### What is unverified
 - Full interactive walkthrough in a real browser (add to cart, get redirected to login, log back in, land on checkout, add an address) — same structural gap as every previous frontend milestone (no browser automation tool). **Flagged for Zee**, same as M1/M2.
+
+## Session 2026-08-09 (continued) — M4 backend (Razorpay payments), fully verified against the real test API
+
+### What changed
+- `Order`/`OrderItem` (price/name snapshotted at order time, unlike `Cart`), `Payment` (state machine per `docs/architecture.md`), `WebhookEvent` (append-only idempotency log). `OrderService`, `RazorpayService` (wraps the official `Razorpay` NuGet SDK), `OrdersController`, `PaymentsController`. Full reasoning in ADR-012.
+- Zee set up a Razorpay account and generated test-mode API keys himself (no KYC needed for test mode — clarified this distinction with him before he started, since KYC was originally assumed to be a hard M4 blocker and isn't).
+- **Ran into and fixed a corrupted `secrets.json`** (malformed JSON, likely a missing comma from an earlier interrupted `user-secrets set`) — walked Zee through fixing it by hand rather than me reading the file (it holds his real DB password, JWT key, etc., which I don't look at).
+- **Separately discovered the seeded admin account had somehow become a different, Customer-only account** (different user ID than the original seed, same email) — not fully root-caused (plausible: something from Zee's own independent testing), but pragmatically fixed by adding the `Admin` role to the existing account via one SQL command in pgAdmin, rather than digging further or creating a duplicate account.
+- Zee shared the current admin password directly when I asked "what is it" — **my mistake**, I should have asked him to verify it works rather than state the value, same rule as the DB password. Noted for next time.
+- Zee generated and applied this migration himself again.
+
+### Two real bugs found and fixed before ever touching a real Razorpay account (full detail in ADR-012)
+1. `RazorpayService`'s constructor required the webhook secret eagerly, even though order creation doesn't need it and the webhook secret doesn't exist yet (needs a dashboard step not done until `ngrok` is set up). Broke order creation entirely with a config error. Fixed: webhook secret now optional at construction, required only when actually verifying a webhook.
+2. The webhook event-ID handling assumed Razorpay's JSON body has a top-level `"id"` field for the event — **verified against Razorpay's actual documentation via WebFetch before trusting this**, and found it was wrong: there is no such field; the real identifier is the `X-Razorpay-Event-Id` HTTP header. As originally written, this would have made idempotency detection — and therefore all webhook processing — fail on every single real delivery. Fixed by reading the header in the controller and threading it through explicitly.
+
+### What was verified, and how (all against the real database AND the real Razorpay test API, VERIFIED)
+- `dotnet build`: 0 warnings/errors. `dotnet test`: 21/21 passing. `dotnet list package --vulnerable`: clean (including the new `Razorpay` SDK dependency).
+- Migration reviewed before applying: clean, no `xmin`-style issues (none of these entities use optimistic concurrency).
+- **Full real order-creation call**: hit Razorpay's actual test API and got back a real `razorpay_order_id` (`order_TNa1MTQtO9ttIt`) — not a mock.
+- **Full webhook simulation, done properly, not hand-waved**: hand-constructed a `payment.captured` payload matching Razorpay's real documented structure, computed its HMAC-SHA256 signature the same way Razorpay signs real deliveries (using a temporary local webhook secret, since the real one needs the `ngrok` step, not done yet), and POSTed it with the correct headers. Confirmed: order transitioned to `Paid`, stock correctly decremented (5→3 for a quantity-2 order), cart correctly cleared. **Replayed the identical event** and confirmed idempotency (stock stayed at 3, not double-decremented). **Sent a tampered signature** and confirmed it's rejected (400).
+- Also fixed and verified along the way: enum values (`OrderStatus`) were serializing as raw numbers (`0`) instead of readable strings — added a global `JsonStringEnumConverter`, confirmed responses now show `"PendingPayment"`/`"Paid"` etc. Cross-user order access confirmed correctly 404s (doesn't leak that another user's order exists). Empty-cart order attempt confirmed 400.
+- Test data cleaned up (soft-deleted) afterward, server stopped.
+
+### What is unverified / explicitly deferred
+- **Real webhook delivery from Razorpay itself** — only a hand-simulated one, since the real webhook needs `ngrok` + dashboard configuration (`docs/human-actions.md` #18), not done yet. The hand-simulation is a faithful reproduction (same signing algorithm, same payload shape verified against real docs), but it's still not the same as receiving Razorpay's actual delivery.
+- Frontend: no checkout widget integration yet — customer currently has no way to actually pay through the UI.
+- Reconciliation job (poll for stuck pending payments, per `docs/architecture.md`) — not built, flagged as a known gap, not silently dropped.
+- No automated tests for the payment flow yet — same integration-test-database gap tracked since M1.

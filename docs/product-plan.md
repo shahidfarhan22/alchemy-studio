@@ -67,11 +67,18 @@ Each milestone is independently implementable, testable, and committable. None i
 **Decisions:** cart persists server-side for guests too (cookie-tracked, merges into account on login); login required only at checkout, not before adding to cart; cart items always reflect live price/stock; unavailable items stay visible in the cart (marked, not silently removed) — see ADR-011.
 **Risk:** cart state design (server-side vs. client-only) affects everything downstream — decide deliberately, not by default.
 
-### M4 — Payments (Razorpay)
+### M4 — Payments (Razorpay) — backend done and verified against real Razorpay test API, frontend next
 **Goal:** customer can pay for an order; payment is verified server-side via webhook, never trusted from the frontend.
-**Depends on:** M3, Razorpay individual-KYC account created (`docs/human-actions.md`)
+**Depends on:** M3, Razorpay individual-KYC account created (`docs/human-actions.md`) — **revised**: only test-mode keys were actually needed to build this, not full KYC (see `docs/human-actions.md` #17/#18)
+**Definition of Done:**
+  - [ ] Feature works end-to-end via UI — backend fully verified (order creation against the real Razorpay test API, a hand-signed webhook correctly moving an order to Paid + decrementing stock + clearing the cart, idempotent replay, rejected tampered signature); frontend checkout-widget integration not built yet
+  - [ ] Automated tests — none yet, same integration-test-DB gap as M1-M3
+  - [ ] Error + loading + empty states — backend done; frontend pending
+  - [x] No new lint/type errors
+  - [x] Docs updated (this entry, ADR-012)
+  - [ ] Verified by Zee
 **Estimated effort:** L
-**Risk:** the highest-stakes milestone in the whole project — money correctness, idempotency, and the order state machine all live here. See `docs/payments.md` (written during this milestone).
+**Risk:** the highest-stakes milestone in the whole project — money correctness, idempotency, and the order state machine all live here. **Two real bugs were caught and fixed before ever touching a real Razorpay account** — see ADR-012 in docs/decisions.md (a config bug that would have broken order creation entirely, and a webhook event-ID bug, verified against Razorpay's actual documentation, that would have made every real webhook delivery fail silently in production).
 
 ### M5 — Custom order requests + quoting
 **Goal:** customer submits a custom request; admin reviews and sends a quote; customer accepts and pays.
