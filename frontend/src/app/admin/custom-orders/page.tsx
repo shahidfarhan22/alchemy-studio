@@ -70,6 +70,11 @@ export default function AdminCustomOrdersPage() {
                         Send quote
                       </Button>
                     )}
+                    {r.status === "Accepted" && r.orderId && (
+                      <Button href={`/admin/orders/${r.orderId}`} variant="ghost">
+                        Manage order →
+                      </Button>
+                    )}
                   </div>
                 </div>
 
