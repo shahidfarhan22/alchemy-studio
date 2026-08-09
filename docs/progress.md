@@ -1,9 +1,9 @@
 # Progress Log
 
 ## Current state
-- Phase: M3 — Cart & checkout, backend done, frontend not started
+- Phase: M3 — Cart & checkout, code complete (backend PR #13 merged, frontend PR pending), needs Zee's browser verification
 - Last completed milestone: M2 — Product catalog, backend + frontend (merged via PR #9-#11). M1 auth also functionally complete (PR #5-#6), pending Zee's real-browser click-through and the integration-test DB decision (see below).
-- Next milestone: M3 frontend (cart page, checkout page with login gate) — see `docs/product-plan.md`
+- Next milestone: M4 — Payments (Razorpay), once M3's frontend is reviewed/merged
 
 ## Environment
 - Repo path: `D:\New Project`, branch `main`. GitHub: [shahidfarhan22/alchemy-studio](https://github.com/shahidfarhan22/alchemy-studio) (public)
@@ -238,3 +238,20 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 ### What is unverified
 - Frontend cart/checkout UI — not built yet, next up. This will need the login-gate-at-checkout behavior Zee specified.
 - No automated tests for Cart/Address yet — same integration-test-database gap tracked since M1 (Docker vs. dedicated test DB decision still pending).
+
+## Session 2026-08-09 (continued) — M3 frontend (cart page, checkout, login gate)
+
+### What changed
+- `/cart`: shows items, quantity controls, unavailable/out-of-stock items shown distinctly (not hidden, per ADR-011) with a "remove" action, subtotal, "Proceed to checkout" disabled unless every item is available and in stock.
+- `AddToCartButton` (client-component island embedded in the server-rendered `/products/[slug]` page) — inline "Added to cart" confirmation + link to cart, not a redirect.
+- `/checkout`: the login gate — redirects to `/login?redirect=/checkout` if not authenticated, lands back on checkout after logging in. Shows order summary + address selection/creation. "Continue to payment" is present but disabled with an explanatory tooltip — payment itself is M4, not built yet; not presented as functional.
+- `/login` and `/register` now support a `?redirect=` param so checkout (or anything else, later) can send users to auth and back to where they were.
+- **Fixed a bug in my own draft before it was ever run**: `cart-api.ts` initially had every call passing `skipAuth: true` — which would have meant the access token never got attached even for logged-in users, breaking account-based cart identification entirely (every request would've looked anonymous). Caught by rereading the code against what `skipAuth` actually does in `api-client.ts`, not by testing.
+- **Real Next.js requirement, not just a lint preference**: reading the `redirect` query param needs `useSearchParams()`, which requires a `<Suspense>` boundary around it in the App Router — omitting this fails `next build` outright. Restructured both login and register pages into a thin wrapper + inner form component to satisfy it.
+
+### What was verified, and how
+- `npm run lint`: clean. `npm run build`: succeeds (confirmed with the backend genuinely running this time, not stopped — was checking for new build-time issues, not the already-solved backend-down case; `/cart` and `/checkout` render as static since all their data fetching is client-side, no new build-time backend coupling introduced).
+- Both new pages confirmed serving 200 with the correct pre-hydration loading state via curl.
+
+### What is unverified
+- Full interactive walkthrough in a real browser (add to cart, get redirected to login, log back in, land on checkout, add an address) — same structural gap as every previous frontend milestone (no browser automation tool). **Flagged for Zee**, same as M1/M2.
