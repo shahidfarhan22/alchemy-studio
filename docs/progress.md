@@ -206,3 +206,10 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 - Real interactive click-through of the admin create/edit/delete forms in an actual browser — same limitation as M1 (no browser automation tool available). **Flagged for Zee**, alongside the M1 browser check.
 
 **Zee returned partway through this session** — from here on, PRs are left open for his review/merge rather than self-merged, same as before he went to sleep.
+
+## Session 2026-08-09 (continued) — error boundaries added, real bug found via Zee's live testing
+
+- Added `frontend/src/app/products/error.tsx` and `frontend/src/app/error.tsx` (app-wide fallback) per `docs/architecture.md`'s "Failure modes" and AGENTS.md's "global error boundary, wired once" — the `/products` crash Zee hit (backend down → raw `TypeError: fetch failed` stack trace shown to the user) is exactly the case these exist for.
+- **Real bug found through Zee's own browser testing, not something I could catch with curl**: the "Try again" button visually did nothing when clicked, even with the backend confirmed back up — a manual page reload worked, but the button didn't. Root cause: `reset()` alone re-renders the error boundary but doesn't guarantee Next.js actually re-fetches the Server Component's data; `router.refresh()` is needed alongside it to force a real re-fetch (this is a documented Next.js gotcha, not obvious from the API). Fixed in both error boundaries.
+- This is a good example of why the "needs a real browser" gap I kept flagging matters — curl could confirm the error boundary *rendered*, but not that its retry mechanism actually worked. Zee's testing caught a real, user-facing bug that automated/curl verification structurally could not have found.
+- These files are being added to the still-open PR #10 (M2 frontend) rather than a new PR, since they're directly part of that same catalog UI work.
