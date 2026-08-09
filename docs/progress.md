@@ -397,3 +397,22 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 - Decline's happy path wasn't separately curl-tested live (shares an already-proven guard function with accept and an already-proven mutation pattern with cancel — judged low-value to spend a third round-trip through Zee's admin credentials on).
 - The actual-expiry branch of the quote-guard (14 days genuinely elapsed) is code-reviewed but not empirically time-tested — would need DB write access to backdate a timestamp, or a real 14-day wait.
 - Frontend entirely not started: request form, "my requests" list, accept/decline UI, admin quoting UI.
+
+## Session 2026-08-09 (continued) — M5 frontend: custom order requests + quoting
+
+### What changed
+- `lib/custom-orders-api.ts` — typed client mirroring the backend DTOs exactly (`CustomOrderStatus` includes the server-computed `"Expired"` value alongside the real persisted statuses).
+- **Extracted `AddressPicker` (+ its `NewAddressForm`) out of `checkout/page.tsx` into `components/commerce/AddressPicker.tsx`** — the custom-order accept flow needed the exact same "pick a saved address or add a new one" UI, and this was the second real use, the same DRY threshold already applied on the backend (`OrderService`'s shared helpers). Refactored `checkout/page.tsx` to use it and **re-verified it still works** (lint/build clean, live-curl'd against the running backend) before treating the extraction as safe.
+- New pages: `/custom-orders/new` (request form, every field optional per ADR-016), `/custom-orders` ("my requests" list with a status badge per row), `/custom-orders/[id]` (full detail — shows the quote and lets the customer accept-and-pay or decline when `Quoted`, cancel when `Requested`, links out to `/orders/[orderId]` once `Accepted`), `/admin/custom-orders` (admin queue with an inline quote form per request, appears only on requests still in `Requested` status).
+- The accept-and-pay flow reuses `openRazorpayCheckout` from `lib/razorpay-checkout.ts` **completely unchanged** — same widget, same "webhook is the source of truth, the client handler just navigates to the polling order page" pattern as catalog checkout.
+- Added a "Commission" link to `SiteHeader` and a spare commission CTA section to the homepage, so the feature is actually reachable (in the Vault voice, no visual identity work needed here — the existing tokens/primitives covered every UI need).
+
+### What was verified, and how
+- `npm run lint`: clean (after fixing a handful of `react/no-unescaped-entities` apostrophe issues). `npm run build`: clean, all new routes registered correctly.
+- Full-repo grep for leftover raw Tailwind `gray-`/`red-`/`green-`/`amber-` classes: zero matches, including every new file.
+- Started the real dev server against the real backend (still holding the exact test data created during the backend verification session) and `curl`'d every new route plus two real request IDs in different states (`Requested` and `Accepted`) — all 200, no hydration-error markers, homepage's commission CTA confirmed present in the rendered HTML.
+
+### What is unverified / explicitly deferred
+- Real interactive browser verification — same structural gap as every prior frontend milestone. Zee needs to click through: submit a request with some fields blank, get it quoted (needs his own admin login), accept it and complete a real test-mode payment, watch it land on the existing order-status page, and separately verify decline and cancel actually update the UI correctly.
+- Admin quoting UI has no re-quote/edit-quote affordance (matches the backend, which only allows quoting from `Requested` — not a gap, a deliberate v1 scope limit already documented in ADR-016).
+- This completes M5 build-wise (backend PR #20 + this frontend work) — both still need Zee's sign-off before the milestone is marked fully done in `docs/product-plan.md`.
