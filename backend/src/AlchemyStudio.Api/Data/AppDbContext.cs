@@ -1,5 +1,6 @@
 using AlchemyStudio.Api.Addresses;
 using AlchemyStudio.Api.Catalog;
+using AlchemyStudio.Api.CustomOrders;
 using AlchemyStudio.Api.Orders;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -22,6 +23,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<WebhookEvent> WebhookEvents => Set<WebhookEvent>();
+    public DbSet<CustomOrderRequest> CustomOrderRequests => Set<CustomOrderRequest>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -116,6 +118,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.Entity<WebhookEvent>(entity =>
         {
             entity.HasIndex(e => e.RazorpayEventId).IsUnique(); // the actual idempotency guard
+        });
+
+        builder.Entity<CustomOrderRequest>(entity =>
+        {
+            entity.HasIndex(r => r.UserId);
+            entity.Property(r => r.Status).HasConversion<string>();
+
+            entity.HasOne<Order>()
+                .WithMany()
+                .HasForeignKey(r => r.OrderId)
+                .OnDelete(DeleteBehavior.Restrict); // orders are never deleted; this is just a lookup link
         });
     }
 }

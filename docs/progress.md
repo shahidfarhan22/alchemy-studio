@@ -2,8 +2,8 @@
 
 ## Current state
 - Phase: M4 — Payments — ✅ DONE. Fully verified with a real browser payment and a genuine Razorpay-initiated webhook through a real `ngrok` tunnel (see ADR-013, `docs/product-plan.md`).
-- Visual identity: "The Vault" (ADR-015) — PR 1 (foundation + customer-facing) merged. PR 2 (admin panel) code-complete, awaiting Zee's browser sign-off.
-- Next milestone: M5 (custom orders) — not yet started, needs to be confirmed with Zee before beginning. Known small gap to fold in around M5/M6: no order-history or profile page exists yet (see "Open items" below).
+- Visual identity: "The Vault" (ADR-015) — both PRs merged, whole app restyled.
+- M5 (custom orders + quoting): backend code-complete and verified (ADR-016). Frontend not started yet.
 
 ## Environment
 - Repo path: `D:\New Project`, branch `main`. GitHub: [shahidfarhan22/alchemy-studio](https://github.com/shahidfarhan22/alchemy-studio) (public)
@@ -14,7 +14,7 @@
 - [ ] Blocked on: nothing currently
 - [ ] Deferred decision: store/brand name → GitHub repo is named `alchemy-studio` as a working name; affects domain, branding — see `docs/requirements.md` open items
 - [ ] Deferred decision: file storage provider, email provider → decided at M2/M7 respectively (`docs/technology-stack.md`)
-- [ ] Deferred feature: no order-history ("my orders") or profile page exists anywhere in the app yet, nor a backend endpoint to list a customer's own past orders — the order-confirmation page currently only links to Home/Continue shopping. Zee flagged this after a real payment left him with nowhere to go. Decided to track it as a real feature to build alongside M5/M6 rather than bolt on piecemeal — see `docs/product-plan.md`.
+- [ ] Deferred feature: no order-history ("my orders") or profile *page* exists in the frontend yet — **correction**: the backend endpoint (`GET /api/v1/orders`, `OrderService.GetOrdersForUserAsync`) already exists and works (confirmed directly while investigating M5's Order/Payment code, ADR-016) — this was previously logged here as a backend gap too, which was inaccurate. Only the frontend page is actually missing. Still tracked as a real feature to build alongside M5/M6 rather than bolt on piecemeal.
 
 ## Session 2026-08-08
 
@@ -375,3 +375,25 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 ### What is unverified / explicitly deferred
 - Real interactive verification as admin — log in, create a category, create/edit/delete a product, confirm the restyled table/forms are usable and the new `aria-invalid` states actually trigger on bad input. Same structural limitation as every prior frontend milestone (no browser automation available here).
 - This closes out the visual-identity workstream from ADR-015 — both PRs code-complete. Next up (not started): M5, custom order requests + quoting.
+
+## Session 2026-08-09 (continued) — M5 backend: custom order requests + quoting
+
+### What changed
+- Confirmed real product decisions with Zee before writing code (same rigor as every other milestone): every request field optional, single price + optional note for quoting, a fixed 14-day quote-expiry window, login required upfront (no guest custom requests).
+- Investigated the exact current `Order`/`OrderItem`/`OrderService`/`RazorpayService` shapes directly (not from memory) before designing anything, since M5 needed to reuse the M4 payment flow without breaking it. Found `OrderItem.ProductId` was required/non-nullable and the webhook's stock-decrement loop unconditionally assumed every item maps to a real catalog `Product` — a custom item has neither. Made `ProductId` nullable and added an explicit skip in the decrement loop, rather than faking a product reference. Full reasoning in ADR-016.
+- New `CustomOrders` module: `CustomOrderRequest` entity + status enum (`Requested/Quoted/Accepted/Declined/Cancelled` — "Expired" is deliberately computed, never stored, since this app has no background-job infrastructure), `CustomOrderService`, customer-facing `CustomOrdersController` (`/api/v1/custom-orders`), admin-facing `AdminCustomOrdersController` (`/api/v1/admin/custom-orders`).
+- Refactored `OrderService`: extracted the address-lookup and Order+Razorpay-creation logic `CreateOrderAsync` already had into shared private helpers, then added `CreateOrderForCustomQuoteAsync` on top of the same helpers — a custom-quote acceptance goes through the **exact same** Order/Payment/webhook code as a catalog checkout, not a parallel path. `CustomOrderRequest` never tracks payment status itself; once accepted, `Order.Status` (via the existing, unmodified `/orders/{id}` page) is the single source of truth, same as a catalog order.
+- Migration `AddCustomOrderRequests` — clean, no `xmin` gotcha this time (no concurrency token on this entity).
+
+### What was verified, and how (all against the real database and real webhook-processing code, VERIFIED)
+- Full customer lifecycle via curl: create with every field populated, create with zero fields (confirming true optionality), list, get, cancel-before-quote (succeeds), double-cancel (correctly rejected), accept/decline-before-quote (correctly rejected with `INVALID_STATE`).
+- Admin quoting: asked Zee to run two copy-pasteable commands himself (his own admin login, a token he generated and pasted back — never his password) so the admin-only quote endpoint could be exercised without me ever touching his credentials. `QuoteExpiresAt` confirmed exactly `QuotedAt + 14 days` to the second; admin DTO correctly joined the requesting user's real email/display name.
+- **The highest-risk path, end to end**: accepted the quote → real `Order` created with a real Razorpay order ID → hand-signed a `payment.captured` webhook (same HMAC technique as ADR-012) using a **temporary local webhook secret set via a process-scoped environment variable** (verified the override actually took effect before trusting the result; never touched Zee's real configured secret, restored his normal backend config immediately after) → order transitioned to `Paid`, and the stock-decrement loop **correctly skipped** the null-`ProductId` custom item with no misleading log line.
+- **Regression check, same session**: probed real Dragon-miniature stock (4 left), ran a full normal catalog checkout + the same webhook mechanism, confirmed stock actually decremented to 3 — the `ProductId` nullability change didn't weaken the existing M4 catalog behavior.
+- `dotnet test`: 21/21 passing (no new tests added — same integration-test-DB gap as every prior milestone). `dotnet list package --vulnerable --include-transitive`: clean.
+- **Bonus correction, found along the way**: `docs/progress.md`'s "Open items" previously claimed no backend endpoint existed to list a customer's own orders — untrue, `GET /api/v1/orders` already exists and works. Only the frontend page is actually missing. Corrected in "Open items" above.
+
+### What is unverified / explicitly deferred
+- Decline's happy path wasn't separately curl-tested live (shares an already-proven guard function with accept and an already-proven mutation pattern with cancel — judged low-value to spend a third round-trip through Zee's admin credentials on).
+- The actual-expiry branch of the quote-guard (14 days genuinely elapsed) is code-reviewed but not empirically time-tested — would need DB write access to backdate a timestamp, or a real 14-day wait.
+- Frontend entirely not started: request form, "my requests" list, accept/decline UI, admin quoting UI.
