@@ -128,3 +128,27 @@ Lightweight ADRs: context → options → decision → consequences → date. Ne
    **Decision:** acceptable for MVP — data isn't actually gone (satisfies the core "soft delete" requirement, e.g. for audit/recovery-by-a-developer-with-DB-access), but there's no admin-facing way to see or restore a deleted product yet.
    **Consequences:** revisit if/when the admin panel (M6) needs a "trash" view — would mean an admin-only endpoint using `.IgnoreQueryFilters()` plus a restore action.
 **Date:** 2026-08-09
+
+---
+
+## ADR-011 — M3 cart: guest carts, server-side persistence, no silent item removal
+
+**Context:** Zee's requirements for M3: cart must persist across reload, and guests can add to cart freely but must log in before checkout.
+
+1. **Cart storage: always server-side (Postgres), for both guests and logged-in users — not browser localStorage.**
+   **Decision:** a `Cart` row always exists, identified either by `UserId` (logged in) or a random `AnonymousToken` (guest, delivered via a `cartToken` cookie — `HttpOnly`, `SameSite=Lax`, `Path=/` so it also reaches `/api/v1/auth` for the merge step below, not `Secure` in dev). On login/register, `AuthController` checks for this cookie and calls `CartService.MergeAnonymousCartIntoUserAsync`, folding guest items into the account's cart, then clears the cookie.
+   **Why not localStorage for the guest cart:** satisfies "persists across reload" for guests too (a cookie survives reloads same as localStorage would), while keeping *one* cart implementation instead of two (guest-side JS logic vs. server-side for accounts) — the frontend always just calls the same `/api/v1/cart` endpoints regardless of login state.
+
+2. **Cart items reflect live product price/stock, never a snapshot from when added.**
+   **Decision:** `CartItemDto` is computed fresh from the current `Product` row every time the cart is fetched — no price stored on `CartItem` itself.
+   **Consequences:** simpler, avoids stale-price bugs, but means a price change is reflected in an existing cart immediately (acceptable for MVP; revisit only if this becomes a real complaint).
+
+3. **Unavailable cart items (product soft-deleted or unpublished after being added) are shown, not silently dropped.**
+   **Context:** raised by Zee directly after noticing the original implementation would make an item vanish from the cart with no explanation if its product was removed from the catalog.
+   **Decision:** `CartItemDto` carries an `IsAvailable` flag; `ToDto()` queries products with `.IgnoreQueryFilters()` so a soft-deleted product's last-known name/image/price can still be shown, marked unavailable, rather than the cart entry disappearing.
+   **Real bug found and fixed while implementing this**: the cart-merge method (`MergeAnonymousCartIntoUserAsync`) had the *same* silent-drop problem via a separate, un-fixed query — it looked up stock without `IgnoreQueryFilters()`, so a soft-deleted product's stock resolved to 0, capping its merged quantity to 0 and dropping it. Caught by deliberately re-testing the exact "add to cart, then admin deletes it, then log in" sequence after fixing `ToDto()`, not assumed fixed just because `ToDto()` was. Fixed by removing quantity-capping from merge entirely — capping belongs at the point of directly adding/updating a quantity (`AddItemAsync`/`UpdateItemQuantityAsync`, which already enforce it), not at merge, which should just honestly combine what existed in both carts and let the existing availability flags reflect reality.
+
+**Also:** `Address` entities require login (no anonymous addresses, consistent with "login required at checkout"); one default address per user, enforced by clearing any existing default on create/update of a new one.
+
+**Verified:** full manual walkthrough — anonymous cart creation, stock-limit enforcement (409 on exceeding stock), the unavailable-item display fix, the merge-on-login fix (both the buggy case with a deleted product and a normal case with an available one, to confirm no regression), address CRUD + validation + auth requirement. All against the real database, via curl.
+**Date:** 2026-08-09

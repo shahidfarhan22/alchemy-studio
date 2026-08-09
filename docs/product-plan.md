@@ -53,10 +53,18 @@ Each milestone is independently implementable, testable, and committable. None i
 **Estimated effort:** M
 **Risk:** image upload/storage decisions need to be right before this grows (see `docs/architecture.md`) — **resolved as a deliberate MVP simplification**: plain `ImageUrl` string field for now, real upload deferred to when an object storage account exists (ADR-010, `docs/human-actions.md` #16).
 
-### M3 — Cart & checkout
+### M3 — Cart & checkout — backend done, frontend next
 **Goal:** customer can build a cart and reach a checkout screen with shipping address entry.
 **Depends on:** M2
+**Definition of Done:**
+  - [ ] Feature works end-to-end via UI — backend verified via curl; frontend cart/checkout pages not built yet
+  - [ ] Automated tests — none yet for Cart/Address (same integration-test-DB gap as M1/M2)
+  - [ ] Error + loading + empty states — backend errors done; frontend pending with the UI
+  - [x] No new lint/type errors
+  - [x] Docs updated (this entry, ADR-011)
+  - [ ] Verified by Zee
 **Estimated effort:** M
+**Decisions:** cart persists server-side for guests too (cookie-tracked, merges into account on login); login required only at checkout, not before adding to cart; cart items always reflect live price/stock; unavailable items stay visible in the cart (marked, not silently removed) — see ADR-011.
 **Risk:** cart state design (server-side vs. client-only) affects everything downstream — decide deliberately, not by default.
 
 ### M4 — Payments (Razorpay)
