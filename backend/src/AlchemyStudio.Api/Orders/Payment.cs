@@ -24,6 +24,11 @@ public class Payment
     public required long AmountInPaise { get; set; }
     public string Currency { get; set; } = "INR";
 
+    // Set when an admin-triggered refund is initiated (M6). Status only
+    // moves to Refunded once the refund.processed webhook confirms it --
+    // same "webhook is the source of truth" rule as payment capture.
+    public string? RazorpayRefundId { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

@@ -9,6 +9,16 @@ public enum OrderStatus
     Refunded,
 }
 
+// Independent of OrderStatus -- payment and fulfillment are different
+// concerns (M6, docs/decisions.md). Null until the order is actually Paid;
+// there's nothing to fulfill before that.
+public enum FulfillmentStatus
+{
+    Processing,
+    Shipped,
+    Delivered,
+}
+
 public class Order
 {
     public Guid Id { get; set; }
@@ -25,6 +35,10 @@ public class Order
 
     // Set once we create the corresponding order on Razorpay's side.
     public string? RazorpayOrderId { get; set; }
+
+    public FulfillmentStatus? FulfillmentStatus { get; set; }
+    public string? TrackingNumber { get; set; }
+    public string? Carrier { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;

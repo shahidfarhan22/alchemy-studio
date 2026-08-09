@@ -205,6 +205,12 @@ public class OrderService(AppDbContext db, RazorpayService razorpay, ILogger<Ord
                 order.UpdatedAt = DateTimeOffset.UtcNow;
                 await db.SaveChangesAsync();
                 break;
+            case "refund.processed":
+                await HandleRefundProcessedAsync(order, root);
+                break;
+            case "refund.failed":
+                await HandleRefundFailedAsync(order.Id);
+                break;
             default:
                 logger.LogInformation("Webhook event {EventType} received, no handler needed yet.", eventType);
                 break;
@@ -221,6 +227,7 @@ public class OrderService(AppDbContext db, RazorpayService razorpay, ILogger<Ord
         await UpsertPaymentAsync(order.Id, razorpayPaymentId, amount, PaymentStatus.Captured);
 
         order.Status = OrderStatus.Paid;
+        order.FulfillmentStatus = FulfillmentStatus.Processing; // nothing to fulfill before payment (M6)
         order.UpdatedAt = DateTimeOffset.UtcNow;
 
         // Conditional update, not read-then-write (docs/architecture.md
@@ -256,6 +263,198 @@ public class OrderService(AppDbContext db, RazorpayService razorpay, ILogger<Ord
         await db.SaveChangesAsync();
         logger.LogInformation("Order {OrderId} marked Paid, stock decremented, cart cleared.", order.Id);
     }
+
+    // Admin-triggered refunds (M6) are initiated via RefundOrderAsync below,
+    // but -- same "webhooks are the source of truth" rule as payment capture
+    // -- the order/payment only actually flip to Refunded once this webhook
+    // confirms it, never from the synchronous Razorpay API response.
+    private async Task HandleRefundProcessedAsync(Order order, JsonElement root)
+    {
+        if (order.Status == OrderStatus.Refunded)
+        {
+            return; // already processed (e.g. a retried webhook delivery for a different event id)
+        }
+
+        var refundedAmount = root.GetProperty("payload").GetProperty("refund").GetProperty("entity").GetProperty("amount").GetInt64();
+
+        var payment = await db.Payments.FirstOrDefaultAsync(p => p.OrderId == order.Id);
+        if (payment is null)
+        {
+            logger.LogWarning("refund.processed webhook for order {OrderId} but no Payment record exists.", order.Id);
+            return;
+        }
+
+        payment.Status = refundedAmount >= payment.AmountInPaise ? PaymentStatus.Refunded : PaymentStatus.PartiallyRefunded;
+        payment.UpdatedAt = DateTimeOffset.UtcNow;
+
+        order.Status = OrderStatus.Refunded;
+        order.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await db.SaveChangesAsync();
+        logger.LogInformation("Order {OrderId} marked Refunded ({Amount} paise).", order.Id, refundedAmount);
+    }
+
+    private async Task HandleRefundFailedAsync(Guid orderId)
+    {
+        var payment = await db.Payments.FirstOrDefaultAsync(p => p.OrderId == orderId);
+        if (payment is not null && payment.RazorpayRefundId is not null)
+        {
+            // Clear it so the admin can retry -- this attempt didn't go through.
+            payment.RazorpayRefundId = null;
+            payment.UpdatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync();
+        }
+        logger.LogWarning("Refund failed for order {OrderId} -- needs manual follow-up.", orderId);
+    }
+
+    // --- Admin (M6: order management) ---
+
+    public async Task<List<AdminOrderSummaryDto>> GetAllOrdersForAdminAsync()
+    {
+        // Catalog orders only -- custom-order-derived orders (every item's
+        // ProductId is null, see CreateOrderForCustomQuoteAsync) are managed
+        // from the separate custom-orders admin view instead (product
+        // decision, docs/decisions.md), not merged into this list.
+        var orders = await db.Orders.Include(o => o.Items)
+            .Where(o => o.Items.All(i => i.ProductId != null))
+            .OrderByDescending(o => o.CreatedAt)
+            .ToListAsync();
+
+        var users = await UsersByIdAsync(orders.Select(o => o.UserId));
+
+        return orders.Select(o => new AdminOrderSummaryDto(
+            o.Id, o.UserId, users.GetValueOrDefault(o.UserId)?.Email ?? "(unknown)", o.Status,
+            o.FulfillmentStatus, o.SubtotalInPaise, o.Currency, o.CreatedAt)).ToList();
+    }
+
+    public async Task<AdminOrderDetailDto> GetOrderForAdminAsync(Guid orderId)
+    {
+        var order = await db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId)
+            ?? throw new ApiException("ORDER_NOT_FOUND", "Order not found.", 404);
+
+        var user = await db.Users.FindAsync(order.UserId);
+        var payment = await db.Payments.FirstOrDefaultAsync(p => p.OrderId == orderId);
+
+        return ToAdminDetailDto(order, user?.Email ?? "(unknown)", payment);
+    }
+
+    public async Task<AdminOrderDetailDto> UpdateFulfillmentAsync(Guid orderId, UpdateFulfillmentRequest request)
+    {
+        var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == orderId)
+            ?? throw new ApiException("ORDER_NOT_FOUND", "Order not found.", 404);
+
+        if (order.Status != OrderStatus.Paid)
+        {
+            throw new ApiException("INVALID_STATE", "Only a paid order can be fulfilled.", 409);
+        }
+
+        // Orders paid before this field existed have FulfillmentStatus ==
+        // null even though they're genuinely Paid -- treat that as an
+        // implicit "Processing" baseline rather than misreading it as
+        // "never paid" (caught via real pre-existing order data, not
+        // guessed: every order paid before this migration has this shape).
+        var currentFulfillment = order.FulfillmentStatus ?? FulfillmentStatus.Processing;
+        if (request.Status < currentFulfillment)
+        {
+            throw new ApiException("INVALID_STATE", "Fulfillment status can't move backward.", 409);
+        }
+
+        order.FulfillmentStatus = request.Status;
+        if (!string.IsNullOrWhiteSpace(request.TrackingNumber)) order.TrackingNumber = request.TrackingNumber.Trim();
+        if (!string.IsNullOrWhiteSpace(request.Carrier)) order.Carrier = request.Carrier.Trim();
+        order.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+
+        return await GetOrderForAdminAsync(orderId);
+    }
+
+    public async Task<AdminOrderDetailDto> RefundOrderAsync(Guid orderId)
+    {
+        var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == orderId)
+            ?? throw new ApiException("ORDER_NOT_FOUND", "Order not found.", 404);
+
+        if (order.Status != OrderStatus.Paid)
+        {
+            throw new ApiException("INVALID_STATE", "Only a paid order can be refunded.", 409);
+        }
+
+        var payment = await db.Payments.FirstOrDefaultAsync(p => p.OrderId == orderId);
+        if (payment?.RazorpayPaymentId is null)
+        {
+            throw new ApiException("INVALID_STATE", "No captured payment found for this order.", 409);
+        }
+        if (payment.RazorpayRefundId is not null)
+        {
+            throw new ApiException("REFUND_ALREADY_INITIATED", "A refund has already been initiated for this order.", 409);
+        }
+
+        // receiptKey = order.Id -- Razorpay's own idempotency key for refunds
+        // on the same payment, so a duplicate/retried admin request can't
+        // double-refund even if this guard is somehow raced.
+        var (refundId, _) = razorpay.CreateRefund(payment.RazorpayPaymentId, order.SubtotalInPaise, order.Id.ToString());
+
+        payment.RazorpayRefundId = refundId;
+        payment.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+
+        logger.LogInformation("Refund {RefundId} initiated for order {OrderId} -- awaiting webhook confirmation.", refundId, order.Id);
+
+        return await GetOrderForAdminAsync(orderId);
+    }
+
+    public async Task<DashboardStatsDto> GetDashboardStatsAsync()
+    {
+        var orders = await db.Orders
+            .Select(o => new { o.Status, o.FulfillmentStatus, o.SubtotalInPaise, o.CreatedAt })
+            .ToListAsync();
+
+        var paidOrders = orders.Where(o => o.Status == OrderStatus.Paid).ToList();
+        var totalRevenue = paidOrders.Sum(o => o.SubtotalInPaise);
+        var totalPaidOrders = paidOrders.Count;
+        var averageOrderValue = totalPaidOrders > 0 ? totalRevenue / totalPaidOrders : 0;
+        // Same null-as-Processing reading as UpdateFulfillmentAsync's backward-
+        // transition guard: a Paid order with no FulfillmentStatus yet (paid
+        // before this feature existed) still genuinely hasn't been marked
+        // Shipped/Delivered, so it belongs in this count too -- found via
+        // real pre-existing order data during verification, not assumed.
+        var awaitingFulfillment = paidOrders.Count(o => (o.FulfillmentStatus ?? FulfillmentStatus.Processing) == FulfillmentStatus.Processing);
+
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime.Date);
+        var since = today.AddDays(-29);
+        var revenueByDayMap = paidOrders
+            .Where(o => DateOnly.FromDateTime(o.CreatedAt.UtcDateTime.Date) >= since)
+            .GroupBy(o => DateOnly.FromDateTime(o.CreatedAt.UtcDateTime.Date))
+            .ToDictionary(g => g.Key, g => g.Sum(o => o.SubtotalInPaise));
+
+        var revenueByDay = new List<DailyRevenueDto>();
+        for (var d = since; d <= today; d = d.AddDays(1))
+        {
+            revenueByDay.Add(new DailyRevenueDto(d, revenueByDayMap.GetValueOrDefault(d, 0)));
+        }
+
+        var statusBreakdown = orders
+            .GroupBy(o => o.Status)
+            .Select(g => new StatusCountDto(g.Key.ToString(), g.Count()))
+            .ToList();
+
+        return new DashboardStatsDto(totalRevenue, totalPaidOrders, averageOrderValue, awaitingFulfillment, revenueByDay, statusBreakdown);
+    }
+
+    private async Task<Dictionary<Guid, ApplicationUser>> UsersByIdAsync(IEnumerable<Guid> userIds)
+    {
+        var ids = userIds.Distinct().ToList();
+        return await db.Users.Where(u => ids.Contains(u.Id)).ToDictionaryAsync(u => u.Id);
+    }
+
+    private static AdminOrderDetailDto ToAdminDetailDto(Order order, string userEmail, Payment? payment) => new(
+        order.Id, order.UserId, userEmail, order.Status, order.FulfillmentStatus, order.TrackingNumber, order.Carrier,
+        order.SubtotalInPaise, order.Currency,
+        order.Items.Select(i => new OrderItemDto(i.ProductName, i.PriceInPaise, i.Quantity, i.LineTotalInPaise)).ToList(),
+        new OrderShippingAddressDto(
+            order.ShippingAddress.FullName, order.ShippingAddress.Line1, order.ShippingAddress.Line2,
+            order.ShippingAddress.City, order.ShippingAddress.State, order.ShippingAddress.PostalCode,
+            order.ShippingAddress.Country, order.ShippingAddress.Phone),
+        order.RazorpayOrderId, payment?.RazorpayPaymentId, payment?.RazorpayRefundId, order.CreatedAt, order.UpdatedAt);
 
     private async Task UpsertPaymentAsync(Guid orderId, string? razorpayPaymentId, long amount, PaymentStatus status)
     {
