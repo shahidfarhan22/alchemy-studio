@@ -18,6 +18,9 @@ export function SiteHeader() {
           <Link href="/products" className="hover:text-text transition-colors">
             Collection
           </Link>
+          <Link href="/custom-orders" className="hover:text-text transition-colors">
+            Commission
+          </Link>
           <Link href="/cart" className="hover:text-text transition-colors">
             Cart
           </Link>
