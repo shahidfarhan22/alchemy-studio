@@ -186,3 +186,23 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 ### What is unverified
 - Frontend catalog browsing/admin UI — not built yet, in progress next.
 - Product image handling is untested with a real image (only tested with `imageUrl: null` and omitted) — low risk, it's just a string field, but noting the gap.
+
+## Session 2026-08-09 (continued) — M2 frontend (catalog browsing + admin UI); Zee back mid-session
+
+- `/products` (list) and `/products/[slug]` (detail): Server Components, real HTML for SEO. `/admin/products`, `/admin/products/new`, `/admin/products/[id]/edit`, `/admin/categories`: Client Components behind an `AdminLayout` guard (client-side redirect only — the real enforcement is the backend's `[Authorize(Roles=Admin)]`, per MASTER-PROMPT.md's "never rely on hiding a button" rule).
+- `catalog-api.ts` split public (server-safe, no auth) from admin (browser-only, needs the in-memory token) — reused the existing `api-client.ts`/`public-api.ts` separation from M1.
+- **Three real issues found and fixed before committing, not after:**
+  1. `next/image` requires allow-listing external image hostnames; since admin can paste a URL to *any* domain (ADR-010), that would need a wildcard remote pattern — which turns Next's image optimizer into an open proxy for arbitrary URLs. Used a plain `<img>` tag instead.
+  2. `ProductForm`'s submit handler never actually set `isSubmitting` to `true` (only reset it to `false` in `finally`) — the loading state / disabled-button-during-submit would never have shown. Caught by rereading the code, not by a test.
+  3. `next build` tried to statically pre-render `/products` at build time, which requires the backend reachable *during the build* — failed outright with the backend down. Root cause: frontend and backend are separate deployables (ADR-003) that don't build together, so build-time data fetching (which static generation/ISR requires) is the wrong model here. Fixed by marking both catalog pages `export const dynamic = "force-dynamic"` (fetch per-request instead) — verified by rerunning the build with the backend deliberately still stopped, confirming it now succeeds independent of backend availability.
+- No single-admin-product-by-id backend endpoint exists yet, so the edit page fetches the full admin list and finds the product client-side. Fine at this catalog's expected size; noted as a thing to revisit if the catalog grows large.
+
+### What was verified, and how
+- `npm run lint`: clean (after fixing a `react-hooks/set-state-in-effect` violation in the admin products page — restructured to avoid a synchronous `setState` call inside an effect body).
+- `npm run build`: succeeds, **with the backend deliberately not running** — confirms the dynamic-rendering fix actually solved the build-time coupling problem, not just papered over the symptom.
+- Full curl walkthrough with both servers running: created a category (leftover from earlier) + a fresh test product via the admin API, confirmed it renders correctly on `/products` (name, formatted price) and `/products/[slug]` (name, description, in-stock status), confirmed a nonexistent slug 404s. Confirmed all three admin pages return 200 and show the expected pre-hydration "Loading..." state. Deleted the test product afterward (via the DELETE endpoint — incidentally exercised it again) and stopped both servers.
+
+### What is unverified
+- Real interactive click-through of the admin create/edit/delete forms in an actual browser — same limitation as M1 (no browser automation tool available). **Flagged for Zee**, alongside the M1 browser check.
+
+**Zee returned partway through this session** — from here on, PRs are left open for his review/merge rather than self-merged, same as before he went to sleep.
