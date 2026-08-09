@@ -1,9 +1,9 @@
 # Progress Log
 
 ## Current state
-- Phase: M1 — Auth (register / login / roles)
-- Last completed milestone: M0 — Repo & tooling setup (merged via PR #1-#4)
-- Next milestone: M1 — see `docs/product-plan.md`
+- Phase: M3 — Cart & checkout (not started)
+- Last completed milestone: M2 — Product catalog, backend + frontend (merged via PR #9-#11). M1 auth also functionally complete (PR #5-#6), pending Zee's real-browser click-through and the integration-test DB decision (see below).
+- Next milestone: M3 — see `docs/product-plan.md`
 
 ## Environment
 - Repo path: `D:\New Project`, branch `main`. GitHub: [shahidfarhan22/alchemy-studio](https://github.com/shahidfarhan22/alchemy-studio) (public)
@@ -213,3 +213,10 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 - **Real bug found through Zee's own browser testing, not something I could catch with curl**: the "Try again" button visually did nothing when clicked, even with the backend confirmed back up — a manual page reload worked, but the button didn't. Root cause: `reset()` alone re-renders the error boundary but doesn't guarantee Next.js actually re-fetches the Server Component's data; `router.refresh()` is needed alongside it to force a real re-fetch (this is a documented Next.js gotcha, not obvious from the API). Fixed in both error boundaries.
 - This is a good example of why the "needs a real browser" gap I kept flagging matters — curl could confirm the error boundary *rendered*, but not that its retry mechanism actually worked. Zee's testing caught a real, user-facing bug that automated/curl verification structurally could not have found.
 - These files are being added to the still-open PR #10 (M2 frontend) rather than a new PR, since they're directly part of that same catalog UI work.
+- **Correction:** PR #10 was actually merged by Zee *before* that commit was pushed, so it landed on an already-merged (orphaned) branch and never reached `main`. Caught by checking `git log origin/main` and confirming `error.tsx` was missing from it, not just assumed fixed. Recovered by cherry-picking the one commit onto a fresh branch from current `main` and opening **PR #11**, which Zee reviewed and merged separately, along with confirming the "Try again" button now works correctly (real browser verification, not curl).
+
+## Session 2026-08-09 (continued) — concurrent CLI session touched `docs/human-actions.md` again
+
+- Found uncommitted local changes to `docs/human-actions.md` that neither of us made — content was generic and badly stale (asking "what's the application idea?" as if M0 hadn't happened yet). Almost certainly the other Claude Code CLI session (first seen at the very start of this project, see ADR-007) writing to the same folder again without coordination.
+- Per `AGENTS.md`'s multi-session rule, flagged it to Zee rather than silently discarding or keeping it. He confirmed: discard. Reverted via `git checkout -- docs/human-actions.md`; nothing was lost since it was never committed.
+- **Ongoing risk, not fully solved**: this is the second time the other session has overwritten a file without warning. Worth Zee deciding, when convenient, whether to keep running both sessions against this repo or standardize on one — see `AGENTS.md`'s existing guidance ("check `git status`/`git log` for unfamiliar changes before writing files") as the current mitigation.
