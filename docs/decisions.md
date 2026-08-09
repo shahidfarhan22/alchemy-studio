@@ -106,3 +106,25 @@ Lightweight ADRs: context → options → decision → consequences → date. Ne
 
 **Also implemented, matching AGENTS.md exactly (no deviation):** refresh tokens stored only as a hash, rotated on every use, reuse triggers revocation of the entire active token chain for that user (verified: replaying a rotated-away token both fails *and* kills the legitimately-rotated session, forcing re-login). Access tokens are 15-minute JWTs; refresh tokens live in an `HttpOnly; SameSite=Lax` cookie scoped to `/api/v1/auth` (`Secure` added automatically outside Development). First admin seeded from `Admin:Email`/`Admin:Password` config (never hardcoded), `MustChangePassword` forced true, verified end-to-end (temp password login → forced-change flag → change-password → old password rejected, new one works).
 **Date:** 2026-08-09
+
+---
+
+## ADR-010 — M2 catalog: image handling, concurrency mechanism, soft-delete scope
+
+**Context:** implementing M2 (product catalog) required three implementation calls not previously settled.
+
+1. **Product images are a plain `ImageUrl` string field, not a real upload/object-storage pipeline.**
+   **Context:** `docs/technology-stack.md` already flagged object storage as "TBD at M2, leaning Cloudflare R2" — but choosing and setting up R2 means creating an external account, which is a human action I can't do (`docs/human-actions.md`).
+   **Decision:** MVP ships with `Product.ImageUrl` as a plain string — admin pastes a URL (e.g. hosted anywhere) rather than uploading a file through the app. No fake upload UI was built pretending to be complete.
+   **Consequences:** real upload (presigned direct-to-storage per MASTER-PROMPT.md §16) is a follow-up once an object storage account exists. Logged in `docs/human-actions.md`.
+
+2. **Optimistic concurrency uses Postgres's built-in `xmin` system column, not a hand-maintained version column.**
+   **Decision:** `Product.RowVersion` (`uint`) is mapped via EF Core's `.IsRowVersion().HasColumnName("xmin")` — standard, well-documented Npgsql/EF Core pattern, avoids maintaining an extra column/increment logic by hand.
+   **Real bug hit and fixed while implementing this:** `dotnet ef migrations add` doesn't know `xmin` is a Postgres system column and generated a migration that tried to `CREATE TABLE` with an explicit `xmin` column — Postgres rejects this outright ("column name conflicts with a system column name"), which would have failed at apply-time. Fixed by hand-editing the generated migration to remove that column definition (the system column already exists on every table; EF Core just reads/checks it via the mapping, it never needed creating). **Verified by actually applying the migration and exercising a real concurrency conflict** (stale `rowVersion` on update → `409 CONCURRENCY_CONFLICT`), not just by the migration succeeding.
+   **Consequences:** this hand-edit is required every time a future migration touches the `Products` table's initial creation; if `Product` is ever dropped and recreated in a new migration, re-apply this same fix. Noted here and in a comment in the migration file itself.
+
+3. **Soft-deleted products are invisible everywhere, including to admin — no "view/restore deleted" capability yet.**
+   **Context:** MASTER-PROMPT.md's admin-panel rules require destructive admin actions to be soft-delete where possible — implemented via an `IsDeleted` flag + EF Core global query filter (`HasQueryFilter`), which applies to *every* query against `Products`, admin included.
+   **Decision:** acceptable for MVP — data isn't actually gone (satisfies the core "soft delete" requirement, e.g. for audit/recovery-by-a-developer-with-DB-access), but there's no admin-facing way to see or restore a deleted product yet.
+   **Consequences:** revisit if/when the admin panel (M6) needs a "trash" view — would mean an admin-only endpoint using `.IgnoreQueryFilters()` plus a restore action.
+**Date:** 2026-08-09
