@@ -10,7 +10,7 @@ namespace AlchemyStudio.Api.Auth;
 [ApiController]
 [Route("api/v1/auth")]
 [EnableRateLimiting("auth")]
-public class AuthController(AuthService authService, CartService cartService, IWebHostEnvironment env) : ControllerBase
+public class AuthController(AuthService authService, CartService cartService, IWebHostEnvironment env, ILogger<AuthController> logger) : ControllerBase
 {
     private const string RefreshCookieName = "refreshToken";
 
@@ -90,13 +90,24 @@ public class AuthController(AuthService authService, CartService cartService, IW
 
     // If the browser was carrying a guest cart cookie, fold it into the
     // account's cart now that we know who they are (docs/decisions.md:
-    // cart persists across login, guest -> account).
+    // cart persists across login, guest -> account). Best-effort: a failure
+    // here must never take down login itself, which is the critical path.
+    // Cookie is only cleared on success, so a fixed underlying state can
+    // still be merged on a later login instead of the guest cart silently
+    // vanishing.
     private async Task MergeAnonymousCartAsync(Guid userId)
     {
         var anonymousToken = Request.Cookies[CartController.AnonymousCookieName];
         if (string.IsNullOrEmpty(anonymousToken)) return;
 
-        await cartService.MergeAnonymousCartIntoUserAsync(anonymousToken, userId);
-        Response.Cookies.Delete(CartController.AnonymousCookieName);
+        try
+        {
+            await cartService.MergeAnonymousCartIntoUserAsync(anonymousToken, userId);
+            Response.Cookies.Delete(CartController.AnonymousCookieName);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Cart merge failed during login for user {UserId}; continuing without merging the guest cart.", userId);
+        }
     }
 }

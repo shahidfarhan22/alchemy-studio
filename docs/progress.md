@@ -1,9 +1,9 @@
 # Progress Log
 
 ## Current state
-- Phase: M4 — Payments, code complete (backend PR #15 merged, frontend PR pending). Needs: `ngrok` + real Razorpay webhook test, and Zee's browser verification.
-- Last completed milestone: M3 — Cart & checkout, fully merged (PR #13, #14). M1/M2 also functionally complete, pending Zee's real-browser click-through (recurring open item, see below).
-- Next milestone: `ngrok` + real webhook setup, then M5 (custom orders) — see `docs/product-plan.md`
+- Phase: M4 — Payments — ✅ DONE. Fully verified with a real browser payment and a genuine Razorpay-initiated webhook through a real `ngrok` tunnel (see ADR-013, `docs/product-plan.md`).
+- Last completed milestone: M4 — Payments (Razorpay), fully merged and verified end-to-end.
+- Next milestone: M5 (custom orders) — not yet started, needs to be confirmed with Zee before beginning. Known small gap to fold in around M5/M6: no order-history or profile page exists yet (see "Open items" below).
 
 ## Environment
 - Repo path: `D:\New Project`, branch `main`. GitHub: [shahidfarhan22/alchemy-studio](https://github.com/shahidfarhan22/alchemy-studio) (public)
@@ -11,10 +11,10 @@
 - Services running / credentials location: **local PostgreSQL 17** (native, `D:\postgres`, Windows service `postgresql-x64-17`) — dedicated role `alchemy_app` + database `alchemy_studio` created for this project. Credential (password) lives only in the owner's local `.env` (gitignored) and password manager — never shared in chat. See ADR-008 in `docs/decisions.md`.
 
 ## Open items
-- [ ] Blocked on: nothing currently — proceeding with M0 scaffolding
+- [ ] Blocked on: nothing currently
 - [ ] Deferred decision: store/brand name → GitHub repo is named `alchemy-studio` as a working name; affects domain, branding — see `docs/requirements.md` open items
 - [ ] Deferred decision: file storage provider, email provider → decided at M2/M7 respectively (`docs/technology-stack.md`)
-- [ ] Human action pending: install .NET 10 SDK — see `docs/human-actions.md`
+- [ ] Deferred feature: no order-history ("my orders") or profile page exists anywhere in the app yet, nor a backend endpoint to list a customer's own past orders — the order-confirmation page currently only links to Home/Continue shopping. Zee flagged this after a real payment left him with nowhere to go. Decided to track it as a real feature to build alongside M5/M6 rather than bolt on piecemeal — see `docs/product-plan.md`.
 
 ## Session 2026-08-08
 
@@ -299,3 +299,41 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 ### What is unverified
 - The actual Razorpay widget opening and completing a payment in a real browser (test-mode card numbers) — needs Zee. Same for the polling transition actually being observed live rather than confirmed via two separate API snapshots.
 - Real Razorpay-initiated webhook (still needs `ngrok`, per the backend PR's notes).
+
+## Session 2026-08-09 (continued) — M4 closed out: real `ngrok` + real webhook, real payment; order-confirmation nav gap found and fixed
+
+### What changed
+- Zee set up `ngrok` (reserved static domain), registered a real webhook in the Razorpay test-mode dashboard, and generated his own webhook secret.
+- **Real snags along the way, none of them code bugs**: `secrets.json` broke twice more from hand-editing (duplicate key, then a syntax error) — resolved by deleting it and recreating every secret via `dotnet user-secrets set`, which can't produce invalid JSON. A stale leftover backend process from an earlier session was still holding the port, masking whether new secrets had taken effect until it was killed.
+- **My mistake, caught by the test itself**: gave Zee the wrong test card number (`4111 1111 1111 1111`, a generic cross-provider Visa test number) — Razorpay's widget correctly rejected it as international. Tried three times to pull the real number from Razorpay's docs via WebFetch (page renders the table client-side, couldn't extract it) before asking Zee to open the page and read it back directly. Correct domestic card: `4100 2800 0000 1007`.
+- **UPI unavailable in test checkout** — researched, confirmed as an account-setup gate (needs enabling via the Live dashboard even for test mode), not a bug. Documented so it isn't rediscovered.
+- Full detail in ADR-013.
+- **Zee flagged a real UX dead-end after the payment succeeded**: the order-confirmation page (`frontend/src/app/orders/[id]/page.tsx`) had no way back anywhere — no link to products, home, cart, orders, or profile. Added "Home" and "Continue shopping" links. Checked for an order-history/profile page to also link to — **neither exists anywhere in the app**, frontend or backend. Rather than fake a link to a nonexistent page, flagged it to Zee directly; he chose to defer building it properly alongside M5/M6 instead of bolting it on now (see Open items above).
+
+### What was verified, and how (all real, not simulated)
+- A failed payment attempt (wrong test card) produced a **genuine** `payment.failed` webhook — visible in backend logs, not simulated, incidentally proving the failure path works against real Razorpay traffic too.
+- A successful payment (correct domestic test card) produced a **genuine** `payment.captured` webhook via the real `ngrok` tunnel, confirmed directly in the backend log: `Order 2f3adbf8-d3e4-4a8f-aa42-822de422285e marked Paid, stock decremented, cart cleared.` This is the exact log line `OrderService` emits on success, reached through the full real chain end to end.
+- `npm run lint` and `npm run build`: both clean after the order-confirmation page edit.
+
+### What is unverified / explicitly deferred
+- Order-history and profile pages — don't exist yet, deferred to M5/M6 per Zee's decision above.
+- Automated tests for the payment flow — same integration-test-database gap tracked since M1.
+- Reconciliation job for stuck pending payments — still not built, still a known gap.
+
+## Session 2026-08-09 (continued) — real login 500, found via Zee's own browser, two bugs fixed
+
+### What changed
+- Zee hit a genuine `500` logging into his admin account through the actual UI — the first bug curl-based testing structurally couldn't have caught, since it only surfaces from the real browser's request timing/lifecycle.
+- Diagnosed by reading the backend terminal's actual stack trace directly (not guessed): `AuthController.Login` → `MergeAnonymousCartAsync` → `DbUpdateConcurrencyException` inside `CartService.MergeAnonymousCartIntoUserAsync`.
+- **Fix #1**: made the cart-merge-on-login best-effort — wrapped in try/catch, logged as a warning, login always succeeds now regardless of whether the guest-cart merge succeeds. A non-critical convenience feature was taking down the auth-critical path; that coupling was the real design flaw, independent of what triggered the merge failure itself.
+- Tried to pin the merge failure's exact trigger via direct reproduction (fresh test accounts, curl) — both the "matching product in both carts" and "new product, empty account cart" branches merged cleanly. Could not reproduce Zee's specific account's failure directly; a live DB query (via pgAdmin, read-only, run by Zee) showed 7 leftover anonymous test carts accumulated from a day of manual browser testing, but nothing structurally corrupt in the current snapshot.
+- While investigating, found **fix #2, the more important structural bug**: `AuthProvider`'s session-restore effect in `frontend/src/lib/auth-context.tsx` called `authApi.refresh()` directly inside `useEffect(..., [])` with no guard against React Strict Mode's dev-mode double-invocation. Since `/auth/refresh` rotates the token server-side, the second concurrent call reused a cookie the first call had already rotated away — the backend correctly treated this as reuse (indistinguishable from token theft) and revoked the user's entire active session as designed. Confirmed directly in the backend log: two `Refresh token reuse detected` warnings for the same user, back-to-back, from a single page load.
+- Fixed with a `useRef` guard so the network call only fires once even when the effect runs twice — full reasoning and what's still genuinely unresolved (whether this was also the root cause of the cart-merge race) in ADR-014.
+
+### What was verified, and how
+- `dotnet build`: 0 warnings/errors. `npm run lint`, `npm run build`: both clean.
+- Zee confirmed live in his own browser, twice: login initially still failed once after the backend-only fix (consistent with the refresh-race being a separate, still-live issue), then succeeded after the frontend fix was also applied and the dev server picked it up.
+
+### What is unverified / explicitly deferred
+- The exact original trigger for `DbUpdateConcurrencyException` in the cart merge was never conclusively reproduced, only contained (best-effort catch) — see ADR-014's "what's still open" section for the plausible connection to the Strict Mode race.
+- The 7 leftover anonymous carts in the dev database are harmless clutter, not cleaned up.

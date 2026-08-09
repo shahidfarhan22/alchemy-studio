@@ -67,16 +67,16 @@ Each milestone is independently implementable, testable, and committable. None i
 **Decisions:** cart persists server-side for guests too (cookie-tracked, merges into account on login); login required only at checkout, not before adding to cart; cart items always reflect live price/stock; unavailable items stay visible in the cart (marked, not silently removed) — see ADR-011.
 **Risk:** cart state design (server-side vs. client-only) affects everything downstream — decide deliberately, not by default.
 
-### M4 — Payments (Razorpay) — code complete, needs a real webhook test + Zee's browser verification
+### M4 — Payments (Razorpay) — ✅ DONE, verified with a real Razorpay-initiated payment + webhook
 **Goal:** customer can pay for an order; payment is verified server-side via webhook, never trusted from the frontend.
 **Depends on:** M3, Razorpay individual-KYC account created (`docs/human-actions.md`) — **revised**: only test-mode keys were actually needed to build this, not full KYC (see `docs/human-actions.md` #17/#18)
 **Definition of Done:**
-  - [x] Feature works end-to-end — backend fully verified against the real Razorpay test API + a hand-signed webhook; frontend (checkout widget, order status polling) built and serving correctly, but **not yet exercised with a real Razorpay-initiated webhook** (needs `ngrok`, human-actions.md #18) **or a real browser click-through**
+  - [x] Feature works end-to-end — **fully verified with a real browser payment**: Zee completed a real test-mode checkout (domestic Visa test card `4100 2800 0000 1007`) through the actual Razorpay widget; Razorpay's own servers sent a genuine webhook through an `ngrok` tunnel to the real backend, which verified the real signature and correctly marked the order `Paid`, decremented stock, and cleared the cart. Confirmed directly in the backend log, not inferred.
   - [ ] Automated tests — none yet, same integration-test-DB gap as M1-M3
-  - [x] Error + loading + empty states (payment dismissed/failed, polling timeout, cart/address validation)
+  - [x] Error + loading + empty states (payment dismissed/failed, polling timeout, cart/address validation) — also incidentally verified for real: an earlier attempt with the wrong (international-flagged) test card produced a genuine `payment.failed` webhook, correctly handled
   - [x] No new lint/type errors
-  - [x] Docs updated (this entry, ADR-012)
-  - [ ] Verified by Zee
+  - [x] Docs updated (this entry, ADR-012, ADR-013)
+  - [x] Verified by Zee
 **Estimated effort:** L
 **Risk:** the highest-stakes milestone in the whole project — money correctness, idempotency, and the order state machine all live here. **Two real bugs were caught and fixed before ever touching a real Razorpay account** — see ADR-012 in docs/decisions.md (a config bug that would have broken order creation entirely, and a webhook event-ID bug, verified against Razorpay's actual documentation, that would have made every real webhook delivery fail silently in production).
 
