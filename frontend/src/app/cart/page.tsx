@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { getCart, updateCartItem, removeCartItem } from "@/lib/cart-api";
 import type { CartDto } from "@/lib/cart-api";
 import { formatPrice } from "@/lib/catalog-types";
 import { ApiError } from "@/lib/api-client";
+import { Container } from "@/components/ui/Container";
+import { PageHeading } from "@/components/ui/PageHeading";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { HairlineRule } from "@/components/ui/HairlineRule";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { LineItemRow } from "@/components/catalog/LineItemRow";
 
 export default function CartPage() {
   const [cart, setCart] = useState<CartDto | null>(null);
@@ -39,92 +45,99 @@ export default function CartPage() {
   }
 
   if (cart === null && !error) {
-    return <main className="flex-1 p-6 text-gray-500">Loading...</main>;
+    return (
+      <main className="flex-1 py-16">
+        <Container>
+          <p className="text-muted font-sans">Loading…</p>
+        </Container>
+      </main>
+    );
   }
 
   const availableItems = cart?.items.filter((i) => i.isAvailable) ?? [];
   const canCheckout = availableItems.length > 0 && availableItems.every((i) => i.inStock);
 
   return (
-    <main className="flex-1 max-w-2xl mx-auto w-full p-6">
-      <h1 className="text-2xl font-semibold mb-6">Your cart</h1>
+    <main className="flex-1 py-16">
+      <Container>
+        <PageHeading className="mb-8">Your cart</PageHeading>
 
-      {error && <p role="alert" className="text-sm text-red-600 bg-red-50 rounded px-3 py-2 mb-4">{error}</p>}
+        {error && <ErrorBanner>{error}</ErrorBanner>}
 
-      {cart && cart.items.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500 mb-4">Your cart is empty.</p>
-          <Link href="/products" className="underline">Browse products</Link>
-        </div>
-      ) : cart ? (
-        <>
-          <ul className="divide-y">
-            {cart.items.map((item) => (
-              <li key={item.productId} className="py-4 flex gap-4 items-center">
-                <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden shrink-0">
-                  {item.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
-                  ) : null}
-                </div>
-
-                <div className="flex-1">
-                  <Link href={`/products/${item.productSlug}`} className="font-medium hover:underline">
-                    {item.productName}
-                  </Link>
-                  {!item.isAvailable ? (
-                    <p className="text-sm text-red-600">No longer available</p>
-                  ) : !item.inStock ? (
-                    <p className="text-sm text-red-600">Out of stock</p>
-                  ) : (
-                    <p className="text-sm text-gray-600">{formatPrice(item.priceInPaise, item.currency)} each</p>
-                  )}
-                </div>
-
-                {item.isAvailable ? (
-                  <input
-                    type="number"
-                    min={0}
-                    value={item.quantity}
-                    disabled={pendingProductId === item.productId}
-                    onChange={(e) => handleQuantityChange(item.productId, parseInt(e.target.value, 10) || 0)}
-                    className="w-16 rounded border border-gray-300 px-2 py-1 text-sm"
-                  />
-                ) : (
-                  <button
-                    onClick={() => handleQuantityChange(item.productId, 0)}
-                    disabled={pendingProductId === item.productId}
-                    className="text-sm underline text-red-600"
-                  >
-                    Remove
-                  </button>
-                )}
-
-                <p className="w-24 text-right text-sm">{formatPrice(item.lineTotalInPaise, item.currency)}</p>
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-6 flex items-center justify-between border-t pt-4">
-            <span className="font-medium">Subtotal</span>
-            <span className="font-medium">{formatPrice(cart.subtotalInPaise, cart.currency)}</span>
+        {cart && cart.items.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-muted font-sans mb-6">Your cart is empty.</p>
+            <Button href="/products" variant="outline">
+              Browse the collection
+            </Button>
           </div>
+        ) : cart ? (
+          <>
+            <ul className="divide-y divide-hairline">
+              {cart.items.map((item) => (
+                <LineItemRow
+                  key={item.productId}
+                  name={item.productName}
+                  href={`/products/${item.productSlug}`}
+                  imageUrl={item.imageUrl}
+                  subtitle={
+                    !item.isAvailable ? (
+                      <span className="text-danger">No longer available</span>
+                    ) : !item.inStock ? (
+                      <span className="text-danger">Out of stock</span>
+                    ) : (
+                      `${formatPrice(item.priceInPaise, item.currency)} each`
+                    )
+                  }
+                  right={
+                    <div className="flex items-center gap-4">
+                      {item.isAvailable ? (
+                        <Input
+                          type="number"
+                          min={0}
+                          value={item.quantity}
+                          disabled={pendingProductId === item.productId}
+                          onChange={(e) => handleQuantityChange(item.productId, parseInt(e.target.value, 10) || 0)}
+                          className="w-16 py-1.5 text-center"
+                          aria-label={`Quantity for ${item.productName}`}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleQuantityChange(item.productId, 0)}
+                          disabled={pendingProductId === item.productId}
+                          className="text-xs uppercase tracking-eyebrow text-danger hover:text-text transition-colors"
+                        >
+                          Remove
+                        </button>
+                      )}
+                      <span className="w-24 text-right text-text">{formatPrice(item.lineTotalInPaise, item.currency)}</span>
+                    </div>
+                  }
+                />
+              ))}
+            </ul>
 
-          {!canCheckout && cart.items.length > 0 && (
-            <p className="text-sm text-amber-700 mt-2">
-              Remove or update unavailable/out-of-stock items before checking out.
-            </p>
-          )}
+            <HairlineRule variant="gold" className="mt-6" />
+            <div className="mt-4 flex items-center justify-between">
+              <span className="font-serif text-lg">Subtotal</span>
+              <span className="font-serif text-lg">{formatPrice(cart.subtotalInPaise, cart.currency)}</span>
+            </div>
 
-          <Link
-            href="/checkout"
-            aria-disabled={!canCheckout}
-            className={`mt-4 block text-center rounded px-4 py-2 text-white ${canCheckout ? "bg-black" : "bg-gray-300 pointer-events-none"}`}
-          >
-            Proceed to checkout
-          </Link>
-        </>
-      ) : null}
+            {!canCheckout && cart.items.length > 0 && (
+              <p className="text-sm text-warning mt-3 font-sans">
+                Remove or update unavailable/out-of-stock items before checking out.
+              </p>
+            )}
+
+            <div className="mt-8">
+              <Button href="/checkout" disabled={!canCheckout} fullWidth>
+                Proceed to checkout
+              </Button>
+            </div>
+          </>
+        ) : null}
+      </Container>
     </main>
   );
 }

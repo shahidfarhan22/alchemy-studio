@@ -2,7 +2,7 @@
 
 ## Current state
 - Phase: M4 — Payments — ✅ DONE. Fully verified with a real browser payment and a genuine Razorpay-initiated webhook through a real `ngrok` tunnel (see ADR-013, `docs/product-plan.md`).
-- Last completed milestone: M4 — Payments (Razorpay), fully merged and verified end-to-end.
+- Visual identity: mid-rollout. "The Vault" (ADR-015) — PR 1 (foundation + all customer-facing pages) built, awaiting Zee's browser sign-off. PR 2 (admin panel) not started yet.
 - Next milestone: M5 (custom orders) — not yet started, needs to be confirmed with Zee before beginning. Known small gap to fold in around M5/M6: no order-history or profile page exists yet (see "Open items" below).
 
 ## Environment
@@ -337,3 +337,23 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 ### What is unverified / explicitly deferred
 - The exact original trigger for `DbUpdateConcurrencyException` in the cart merge was never conclusively reproduced, only contained (best-effort catch) — see ADR-014's "what's still open" section for the plausible connection to the Strict Mode race.
 - The 7 leftover anonymous carts in the dev database are harmless clutter, not cleaned up.
+
+## Session 2026-08-09 (continued) — "The Vault" visual identity, PR 1 (foundation + customer-facing)
+
+### What changed
+- Zee asked for the storefront UI to be a genuine "wow," not just functional (it was still literally unmodified `create-next-app` boilerplate through M4). Built six full homepage/catalog mockups as a side-by-side comparison artifact so Zee could pick a direction directly rather than from description alone — he chose **The Vault** (near-black, single gold accent, auction-house/limited-collectible framing). Full reasoning and the rejected alternatives in ADR-015.
+- Confirmed scope with Zee before building: two PRs not five-plus, admin gets the full treatment (not a stripped-down version), a styled text wordmark stands in for a logo (none exists yet), homepage includes a live product-preview grid.
+- Rewrote `globals.css` with a real design-token system (Tailwind v4 `@theme inline`) — along the way, fixed a real pre-existing bug: a `body { font-family: Arial, ... }` rule was silently overriding the Geist fonts that were being loaded but never actually applied. Also removed an OS-`prefers-color-scheme`-driven auto-dark-mode block, since Vault is one deliberate theme.
+- Swapped fonts to **Bodoni Moda** (display serif) + **Public Sans** (body) via `next/font/google`, replacing the default Geist boilerplate. Fixed `metadata.title`/`description`, still literally "Create Next App" until now.
+- Built the app's **first-ever shared component library** (`frontend/src/components/` didn't exist before): `ui/` primitives, `layout/` (SiteHeader + SiteFooter — the app had **zero persistent site chrome** before this; every page hand-rolled its own inline nav links), `catalog/` (ProductCard, LineItemRow).
+- Re-skinned every customer-facing page onto the new primitives with **zero logic changes** — verified by re-reading each page's existing state machine (add-to-cart, cart quantity/availability, checkout's auth-gate + Razorpay integration, order-status polling) and confirming it's untouched, only JSX/styling changed.
+- Folded in two accessibility fixes while every form/error state was already being touched: `aria-invalid` added to checkout's address form (previously the only form missing it), `aria-live="polite"` added around the order-status heading (changes async via polling, previously unannounced to screen readers).
+
+### What was verified, and how
+- `npm run lint`: clean. `npm run build`: clean, including confirming `next/font/google` resolved both new font names correctly and the `Suspense`-boundary requirement around `useSearchParams` (login/register) still holds.
+- Started the real dev server against the real running backend and `curl`'d the homepage, `/products`, `/login`, `/cart` — all 200, and grepped the homepage/products HTML for real seeded product data ("Frontend Test Golem", "Lot 01", "Lot 02") to confirm server-rendered content is genuinely live, not a static placeholder, and checked for hydration-error markers (none found). This is a real step beyond "it compiles" but still short of an actual browser click-through.
+
+### What is unverified / explicitly deferred
+- **Real interactive browser verification** — same structural gap as every prior frontend milestone (no browser-automation tool in this environment). Zee needs to click through the full customer journey (browse → cart → checkout → real Razorpay test payment → order status → register/login/logout) to actually sign off — see `docs/product-plan.md`. This also finally closes the still-outstanding M1 browser-click-through gap if done as part of this pass.
+- **PR 2 (admin panel restyle)** — not started. `/admin/*` currently still has the old unstyled UI.
+- Mobile/narrow-viewport behavior of the new `SiteHeader` — no dedicated mobile nav pattern was designed; degrades via flex-wrap but not deliberately tested at phone width.

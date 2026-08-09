@@ -1,41 +1,61 @@
-"use client";
-
-import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
+import { getPublicProducts } from "@/lib/catalog-api";
+import { ProductCard } from "@/components/catalog/ProductCard";
+import { Button } from "@/components/ui/Button";
+import { EyebrowLabel } from "@/components/ui/EyebrowLabel";
+import { HairlineRule } from "@/components/ui/HairlineRule";
 
-// Placeholder landing page -- proves the auth + catalog loops work end-to-end.
-// Real storefront design starts once there's real product content.
-export default function Home() {
-  const { user, isLoading, logout } = useAuth();
-  const isAdmin = user?.roles.includes("Admin") ?? false;
+// Fetches live from the backend per-request, same reasoning as products/page.tsx
+// -- static generation at build time would need the backend reachable during
+// the build, and frontend/backend are separate deployables (ADR-003).
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const products = await getPublicProducts();
+  const preview = products.slice(0, 4);
 
   return (
-    <main className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
-      <h1 className="text-2xl font-semibold">Alchemy Studio</h1>
-
-      <div className="flex gap-4">
-        <Link href="/products" className="underline">Browse products</Link>
-        <Link href="/cart" className="underline">Cart</Link>
-      </div>
-
-      {isLoading ? (
-        <p className="text-gray-500">Loading...</p>
-      ) : user ? (
-        <div className="flex flex-col items-center gap-2">
-          <p>
-            Logged in as <strong>{user.displayName}</strong> ({user.roles.join(", ")})
-          </p>
-          {isAdmin && <Link href="/admin/products" className="underline">Admin panel</Link>}
-          <button onClick={() => logout()} className="underline text-sm">
-            Log out
-          </button>
+    <main className="flex-1">
+      <section className="px-6 py-24 sm:py-32 text-center">
+        <EyebrowLabel wide className="block mb-6">
+          Limited casts · Individually numbered
+        </EyebrowLabel>
+        <h1 className="font-serif text-4xl sm:text-6xl leading-tight text-balance max-w-3xl mx-auto">
+          Miniature, in the fullest sense of craft.
+        </h1>
+        <p className="mt-6 text-muted font-sans max-w-xl mx-auto leading-relaxed">
+          A small collection of resin-cast fantasy and sci-fi figures, released in limited runs and finished
+          entirely by hand — shipped across India.
+        </p>
+        <div className="mt-10">
+          <Button href="/products" variant="outline">
+            View the collection
+          </Button>
         </div>
-      ) : (
-        <div className="flex gap-4">
-          <Link href="/login" className="underline">Log in</Link>
-          <Link href="/register" className="underline">Register</Link>
+      </section>
+
+      <HairlineRule />
+
+      <section className="px-6 py-20 max-w-5xl mx-auto">
+        <div className="flex items-baseline justify-between mb-10">
+          <h2 className="font-serif text-2xl">Current release</h2>
+          {products.length > 4 && (
+            <Link href="/products" className="text-xs uppercase tracking-eyebrow text-muted hover:text-gold transition-colors">
+              View all →
+            </Link>
+          )}
         </div>
-      )}
+
+        {preview.length === 0 ? (
+          <p className="text-muted font-sans">The first pieces are still on the workbench — check back soon.</p>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-12">
+            {preview.map((product, i) => (
+              <ProductCard key={product.id} product={product} lotNumber={i + 1} />
+            ))}
+          </div>
+        )}
+      </section>
     </main>
   );
 }
