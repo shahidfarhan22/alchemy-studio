@@ -23,7 +23,7 @@ _To be filled in as each part of the stack is scaffolded (M0):_
 | Run backend tests | `cd backend && dotnet test` (unit tests only so far — real-Postgres integration tests need Docker or a dedicated test DB, see docs/progress.md) |
 | Lint frontend | `cd frontend && npm run lint` |
 | Build frontend (includes typecheck) | `cd frontend && npm run build` — `next build` runs a full TypeScript check itself; don't run `tsc --noEmit` standalone on a fresh checkout, it needs `.next/types/` which only exists after a build has run at least once (found this breaking CI, see docs/progress.md) |
-| Migrate DB | `dotnet ef migrations add <Name>` / `dotnet ef database update` (from `backend/src/AlchemyStudio.Api`) — migrations auto-apply on startup in Development only (see Program.cs); explicit step in staging/production |
+| Migrate DB | `dotnet ef migrations add <Name>` / `dotnet ef database update` (from `backend/src/AlchemyStudio.Api`) — migrations auto-apply on startup in Development only (see Program.cs); explicit step in staging/production. **If a migration recreates the `Products` table, hand-remove the generated `xmin` column definition** — see ADR-010 in docs/decisions.md, Postgres rejects it as a reserved system-column name. |
 | Seed DB | Admin account auto-seeds on startup in Development from `Admin:Email`/`Admin:Password` user-secrets, if no account exists yet — see `Data/AdminSeeder.cs` |
 | Build backend | `cd backend && dotnet build` |
 | Set backend DB secret (local, one-time) | `dotnet user-secrets set "ConnectionStrings:Default" "Host=localhost;Port=5432;Database=alchemy_studio;Username=alchemy_app;Password=YOUR_PASSWORD"` from `backend/src/AlchemyStudio.Api` |

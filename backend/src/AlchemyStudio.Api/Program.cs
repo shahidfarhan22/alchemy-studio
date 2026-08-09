@@ -1,6 +1,7 @@
 using System.Text;
 using System.Threading.RateLimiting;
 using AlchemyStudio.Api.Auth;
+using AlchemyStudio.Api.Catalog;
 using AlchemyStudio.Api.Data;
 using AlchemyStudio.Api.ErrorHandling;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -51,6 +52,7 @@ builder.Services
 
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<CatalogService>();
 
 var jwtSigningKey = builder.Configuration["Jwt:SigningKey"]
     ?? throw new InvalidOperationException("Jwt:SigningKey is not configured. See AGENTS.md.");

@@ -15,6 +15,12 @@ Things only Zee can do. Status: `pending` / `done` / `blocked`.
 | 7 | (Optional) Update Docker Desktop via its own UI (Settings → Software updates) | Current version (27.5.1) is ~18 months behind on patches. | pending |
 | 8 | Set up a password manager (Bitwarden / 1Password) if you don't have one, before we generate the first real secret (DB password, JWT signing key, API keys) | Secrets need somewhere to live that isn't a text file. | pending |
 
+## Needed soon-ish (not blocking, but unblocks real product photos)
+
+| # | Action | Why | Status |
+|---|---|---|---|
+| 16 | Create an object storage account (Cloudflare R2 suggested — see docs/technology-stack.md) so product images can be uploaded through the app instead of pasted as URLs | M2's catalog currently uses a plain "image URL" field as an MVP simplification (ADR-010) — works for testing/demo, but real product photos need real hosting. Not urgent: you can paste URLs to any image host in the meantime. | pending |
+
 ## Needed before M4 (Payments)
 
 | # | Action | Why | Status |

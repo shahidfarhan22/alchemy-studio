@@ -40,11 +40,18 @@ Each milestone is independently implementable, testable, and committable. None i
 **Estimated effort:** M
 **Risk:** getting refresh-token/cookie handling wrong is the easiest way to introduce a security bug — see AGENTS.md auth rules. Mitigated: refresh rotation + reuse-detection tested directly (see docs/progress.md 2026-08-09), and the cross-origin cookie mechanics were proven with curl, not just assumed.
 
-### M2 — Product catalog
+### M2 — Product catalog — backend done, frontend next
 **Goal:** admin can create/edit products with images and stock; customers can browse and view product detail pages.
 **Depends on:** M1 (admin auth)
+**Definition of Done:**
+  - [ ] Feature works end-to-end via UI — backend verified via curl; frontend browsing/admin pages not built yet
+  - [x] Automated tests: `SlugGenerator` unit tests. Full integration coverage blocked on the same open item as M1 auth (docs/progress.md).
+  - [ ] Error + loading + empty states handled — backend error responses done; frontend states pending with the UI
+  - [x] No new lint/type errors
+  - [x] Docs updated (this entry, ADR-010)
+  - [ ] Verified by Zee
 **Estimated effort:** M
-**Risk:** image upload/storage decisions need to be right before this grows (see `docs/architecture.md`).
+**Risk:** image upload/storage decisions need to be right before this grows (see `docs/architecture.md`) — **resolved as a deliberate MVP simplification**: plain `ImageUrl` string field for now, real upload deferred to when an object storage account exists (ADR-010, `docs/human-actions.md` #16).
 
 ### M3 — Cart & checkout
 **Goal:** customer can build a cart and reach a checkout screen with shipping address entry.

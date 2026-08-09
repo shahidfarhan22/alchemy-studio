@@ -165,3 +165,24 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 - **Verified every command locally first**, including deliberately simulating the no-`.env.local` CI environment for the frontend build (moved the file aside, ran the build with only an env var, confirmed it still worked, restored the file). Also verified `-p:TreatWarningsAsErrors=true` over `/p:...` after the latter got mangled by Git Bash's Windows path conversion locally (a local-shell-only quirk, not a real platform issue, but `-p:` is the safer portable form regardless).
 - **Deliberately did not self-merge the CI PR before seeing it run for real on GitHub's own runners** — local simulation, however careful, isn't the actual target environment. Good thing: **the real run caught something local testing missed.** `npx tsc --noEmit` as a standalone step failed in CI with `Cannot find name 'LayoutProps'` — Next.js generates that ambient type into `.next/types/` during a build, and a fresh CI checkout has no `.next/` yet. Locally this was invisible because builds had already run many times, leaving `.next/types/` populated. Fixed by removing the redundant standalone typecheck step entirely — `next build` already runs a full TypeScript check as part of itself (visible in its own output: "Running TypeScript... Finished TypeScript"), so the separate step wasn't just broken, it was also duplicate work. Corrected the same false assumption in `AGENTS.md`'s command table.
 - This is a good example of why "verified locally" and "verified in the actual target environment" aren't the same claim — logging it plainly rather than glossing over the fact that the first attempt was wrong.
+
+## Session 2026-08-09 (continued) — M2 backend (product catalog)
+
+### What changed
+- `Category`/`Product` entities, `AppDbContext` updated (soft-delete global query filter, `xmin`-based optimistic concurrency, unique slug indexes).
+- `CatalogService` + `ProductsController`/`CategoriesController` (public, unauthenticated) + `AdminCatalogController` (`[Authorize(Roles = Roles.Admin)]`): list/create/update/soft-delete products, create categories, server-side validation.
+- `SlugGenerator` + 7 unit tests (pure logic, no DB).
+- Migration `AddCatalog` — **required a manual fix**: EF Core's migration generator doesn't know `xmin` is a reserved Postgres system column and generated a `CREATE TABLE` that explicitly declares one; Postgres rejects that outright. Removed the erroneous column definition by hand (system column already exists implicitly; the EF Core mapping just reads/checks it, never needed to create it). Documented in ADR-010 and in a comment in the migration file itself, since this will recur if `Products` is ever recreated in a future migration.
+- Deliberate MVP simplification: product images are a plain `ImageUrl` string (admin pastes a URL) rather than a real upload pipeline — real object storage needs an account Zee has to create (`docs/human-actions.md` #16, not blocking).
+- Known limitation, not a bug: soft-deleted products are invisible everywhere (including to admin) — no restore capability yet. Fine for now, revisit at M6 (admin panel) if needed.
+
+### What was verified, and how (all against the real database, VERIFIED)
+- `dotnet build`: 0 warnings/errors. `dotnet test`: 21/21 passing. `dotnet list package --vulnerable`: clean.
+- Applied the (hand-fixed) migration against the real dev database and confirmed it actually succeeds — this is what caught the `xmin` issue in the first place; didn't just trust that a clean `dotnet ef migrations add` was correct.
+- Full curl walkthrough against the running API: category creation → product creation (unpublished, correctly absent from public browse) → publish via update → now visible in public list + detail-by-slug → **stale-`rowVersion` update correctly rejected with `409 CONCURRENCY_CONFLICT`** (real concurrency check, not just a schema decoration) → validation errors return correct field-level details (negative price/stock) → non-admin (authenticated customer) correctly gets `403` on admin endpoints, not `401` → unauthenticated gets `401` → soft-delete → confirmed invisible from public list, public detail (`404`), and admin list alike.
+- Left one test category ("Test Category (Fantasy Miniatures)") in the dev database from this verification — harmless local test data, same pattern as the M1 test accounts, but flagging it so it's not mistaken for something real when Zee looks at the admin panel later.
+- Stopped the test server after verification.
+
+### What is unverified
+- Frontend catalog browsing/admin UI — not built yet, in progress next.
+- Product image handling is untested with a real image (only tested with `imageUrl: null` and omitted) — low risk, it's just a string field, but noting the gap.
