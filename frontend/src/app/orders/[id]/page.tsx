@@ -99,6 +99,11 @@ export default function OrderStatusPage({ params }: { params: Promise<{ id: stri
           <span>{formatPrice(order.subtotalInPaise, order.currency)}</span>
         </div>
       </div>
+
+      <div className="flex justify-center gap-4 mt-6 text-sm">
+        <Link href="/" className="underline">Home</Link>
+        <Link href="/products" className="underline">Continue shopping</Link>
+      </div>
     </main>
   );
 }

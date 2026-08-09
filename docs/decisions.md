@@ -179,3 +179,43 @@ Lightweight ADRs: context → options → decision → consequences → date. Ne
 
 **Verified:** full order lifecycle against the real database and the real Razorpay test API (not a mock) — order creation (real `razorpay_order_id` returned), a hand-signed webhook payload (HMAC-SHA256 computed the same way Razorpay signs real deliveries) correctly transitioning the order to `Paid`, decrementing stock, and clearing the cart; a replayed duplicate event confirmed idempotent (no double-decrement); a tampered signature confirmed rejected. A temporary local webhook secret was set for this test — **must be replaced with the real one once the webhook is configured in the Razorpay dashboard** (needs `ngrok`, tracked as a next step).
 **Date:** 2026-08-09
+
+---
+
+## ADR-013 — M4 closed out: real `ngrok` + real Razorpay webhook, verified with an actual payment
+
+**Context:** ADR-012 verified the payment flow with a hand-signed webhook. This entry covers actually closing that gap — a genuine Razorpay-initiated webhook, reached via a real payment.
+
+**Setup:** Zee installed `ngrok`, obtained a free reserved domain (`sizable-open-ample.ngrok-free.dev`), and registered `https://<that-domain>/api/v1/payments/webhook` in the Razorpay test-mode dashboard for `payment.captured`/`payment.failed`, with his own custom webhook secret.
+
+**Two real snags hit and resolved along the way, neither a code bug — both operational/environmental:**
+
+1. **`secrets.json` broke twice from hand-editing** (once with a duplicate `"Razorpay:WebhookSecret"` key, once with a stray property-name-without-colon syntax error) after Zee edited it directly instead of using `dotnet user-secrets set`. Resolved by deleting the file entirely and recreating every secret fresh via the `set` command, which can't produce invalid JSON. Also discovered along the way: a stale leftover backend process was still holding port 5007 from an earlier session, masking whether the new secrets actually worked until it was killed and a fresh instance started.
+2. **UPI wasn't available as a checkout option**, despite Razorpay's docs describing a `success@razorpay` test VPA. Root cause (verified via search, not assumed): UPI must be explicitly requested/enabled via the **Live** dashboard even to use it in test mode — gated behind the account activation Zee hasn't done yet (deliberately deferred, tied to KYC). Not a bug; switched to testing with a card instead.
+
+**One real mistake on my part, caught by the test itself:** the domestic test card number I originally gave (`4111 1111 1111 1111`) is a generic Visa test number that works with many other payment providers but is **not** Razorpay's documented domestic card — Razorpay's own widget correctly rejected it as "international." I tried three times to extract the real number from Razorpay's docs via WebFetch and failed each time (the page renders the actual table client-side via JavaScript, which the fetch tool doesn't execute) — eventually asked Zee to open the page himself and read it back, rather than keep guessing. The correct one: **Visa domestic debit `4100 2800 0000 1007`**, any future expiry, any CVV. Documented here so it doesn't need rediscovering.
+
+**Verified, for real, in this order:**
+1. A failed attempt (wrong test card) produced a **genuine** `payment.failed` webhook — visible directly in backend logs (`WebhookEvents` insert, `Payment` upsert, `Order.Status` update), not simulated. Incidentally proved the failure-handling path works with real Razorpay traffic too, not just the happy path.
+2. A successful attempt (correct domestic test card) produced a **genuine** `payment.captured` webhook, logged as: `"Order {id} marked Paid, stock decremented, cart cleared."` — the exact log line `OrderService` emits on success, reached via the real chain: real browser → real Razorpay widget → real Razorpay servers → real `ngrok` tunnel → real backend → real signature verification with Zee's real webhook secret.
+
+This closes the one gap flagged throughout M4 (ADR-012's "temporary local webhook secret... must be replaced with the real one"). M4 is now genuinely, not just plausibly, done.
+**Date:** 2026-08-09
+
+---
+
+## ADR-014 — Real bug found via Zee's own browser use: login 500s, root-caused to two separate issues
+
+**Context:** Right after M4's ngrok verification, Zee hit a genuine `500` logging in with his admin account through the actual UI — not something curl testing had ever surfaced, since curl never exercises the real browser's React lifecycle or concurrent-request behavior.
+
+**Two distinct bugs found, not one:**
+
+1. **Login's success was hostage to a non-critical side effect.** `AuthController.Login` calls `MergeAnonymousCartAsync` (folds a guest cart into the account on login, per ADR-011) inline, unguarded — any exception there took down the entire login response with a 500, even though the merge is a convenience feature, not part of the auth-critical path. The actual trigger for the merge itself failing was a `DbUpdateConcurrencyException` on Zee's admin account specifically; multiple clean repro attempts (fresh accounts, matching-product and new-product merge branches) both succeeded, so the precise historical trigger on his account's accumulated cart data (7 leftover anonymous carts from a full day of manual browser testing) was never fully pinned down. **Decision:** rather than chase an intermittent, hard-to-reproduce data race further, made the merge best-effort — wrapped in try/catch, logged as a warning, login always succeeds regardless. The guest-cart cookie is only cleared on a successful merge, so a transient failure just means "try again next login" rather than silently losing the guest cart.
+2. **The real, structural bug, found while investigating #1**: `AuthProvider`'s session-restore effect (`frontend/src/lib/auth-context.tsx`) calls `authApi.refresh()` directly inside a bare `useEffect(() => {...}, [])`, with no guard against React's Strict Mode intentionally double-invoking effects in development. Since `/auth/refresh` **rotates** the refresh token server-side (correct security design, see M1), the second of the two near-simultaneous calls presents the cookie value the first call had already rotated away. The backend correctly identifies this as reuse — indistinguishable from a stolen-token replay — and revokes the user's **entire** active token set as designed (the exact security property refresh rotation exists for, see the M1 progress-log entry on reuse-detection). Confirmed directly in the backend log: two `Refresh token reuse detected for user ...` warnings fired back-to-back for the same user on a single page load. This was silently nuking sessions on page load/reload throughout dev testing, likely contributing noise to several earlier "had to log in again" moments that were never investigated at the time.
+
+**Fix for #2:** a `useRef` guard (`hasAttemptedRefresh`) ensures the network call only actually fires once even when Strict Mode invokes the effect twice — the idiomatic React pattern for effects with non-idempotent side effects, per React's own docs.
+
+**Verified:** both fixes build/lint clean (`dotnet build`, `npm run lint`, `npm run build`). Zee confirmed live in his own browser: admin login now succeeds.
+
+**What's still open, not hand-waved:** the precise root cause of the original `DbUpdateConcurrencyException` in `MergeAnonymousCartIntoUserAsync` for Zee's specific account was not conclusively reproduced — only contained. It's plausible it was itself a downstream symptom of #2 (concurrent duplicate requests racing on cart state, the same failure class as the refresh race, just hitting `/auth/login` instead of `/auth/refresh`), in which case the Strict Mode fix may have already resolved it at the root; not confirmed either way. The seven leftover anonymous test carts in the dev database are harmless clutter, not cleaned up.
+**Date:** 2026-08-09
