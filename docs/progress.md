@@ -4,7 +4,7 @@
 - Phase: M4 — Payments — ✅ DONE. Fully verified with a real browser payment and a genuine Razorpay-initiated webhook through a real `ngrok` tunnel (see ADR-013, `docs/product-plan.md`).
 - Visual identity: "The Vault" (ADR-015) — both PRs merged, whole app restyled.
 - M5 (custom orders + quoting) — both backend and frontend merged (ADR-016). Awaiting Zee's browser sign-off.
-- M6 (admin order management, fulfillment, refunds, dashboard) — backend code-complete and verified against the real Razorpay test API (ADR-017). Frontend not started yet.
+- M6 (admin order management, fulfillment, refunds, dashboard) — backend and frontend both code-complete (ADR-017), backend verified against the real Razorpay test API. Awaiting Zee's browser sign-off.
 
 ## Environment
 - Repo path: `D:\New Project`, branch `main`. GitHub: [shahidfarhan22/alchemy-studio](https://github.com/shahidfarhan22/alchemy-studio) (public)
@@ -440,4 +440,23 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 
 ### What is unverified / explicitly deferred
 - `refund.failed` handling (clearing `RazorpayRefundId` so a retry is possible) is code-reviewed but not live-tested — would need a payment method that genuinely fails refund on Razorpay's test servers, not straightforward to trigger on demand.
-- Frontend entirely not started: admin orders list/detail, fulfillment UI, refund button, dashboard with charts (recharts, per Zee's "industry standard" ask).
+
+## Session 2026-08-10 (continued) — M6 frontend: admin orders, fulfillment, refund UI, charted dashboard
+
+### What changed
+- Added `recharts` (industry-standard React charting library, per Zee's explicit ask for a real charted dashboard) — 0 vulnerabilities on install, verified the build still succeeds before writing any chart code.
+- New `lib/admin-orders-api.ts` mirroring the backend's admin DTOs exactly.
+- `/admin/orders` — catalog-orders-only list (custom-order-derived orders deliberately excluded per the confirmed "separate views" decision), status + fulfillment columns.
+- `/admin/orders/[id]` — full detail: items, shipping address, payment/refund IDs, a fulfillment control that only offers the *next* valid step (Processing→Shipped→Delivered, one at a time, matching how the backend guard works) with optional tracking number/carrier, and a real "Refund this order" button gated to exactly the states the backend allows (guards mirrored client-side for good UX, but the backend remains the real authority per MASTER-PROMPT.md).
+- `/admin/dashboard` — four KPI cards (revenue, paid orders, average order value, awaiting fulfillment), a gold-gradient area chart of the 30-day revenue trend, and a donut chart of order-status breakdown — all colored via the existing Vault CSS tokens (`var(--color-gold)` etc.) passed straight into recharts' SVG props, not hardcoded hex, so the chart styling stays a single source of truth with the rest of the app.
+- Extended `/admin/custom-orders`: an `Accepted` request with a linked order now shows a "Manage order →" link straight into `/admin/orders/[id]` — reuses the exact same fulfillment/refund UI rather than duplicating it, since the backend's order-detail endpoint was deliberately not filtered by custom-vs-catalog (only the *list* endpoint excludes custom orders).
+- Admin nav: added Dashboard and Orders links.
+
+### What was verified, and how
+- `npm run lint`: clean. `npm run build`: clean (one real TypeScript fix along the way — recharts' `Tooltip` `formatter` prop's value type is `ValueType | undefined`, not a bare `number`; loosened the signature and converted internally).
+- Full-repo grep for leftover raw Tailwind color classes: zero matches, including every new file.
+- Started the real dev server against the real backend (still holding all the real orders/refund test data from the backend verification session) and curl'd every new admin route including a real order-detail page — all 200, no hydration-error markers.
+
+### What is unverified / explicitly deferred
+- Real interactive browser verification — same structural gap as every prior frontend milestone. Zee needs to click through: view the orders list, open a real order, advance its fulfillment status, and (carefully, since this is real money) trigger an actual test-mode refund on a real paid test order and watch it settle to Refunded once the webhook lands. Also worth eyeballing the dashboard charts render sensibly against his own real test data.
+- This completes M6 build-wise (backend PR #22 + this frontend work) — both still need Zee's sign-off before the milestone is marked fully done in `docs/product-plan.md`.

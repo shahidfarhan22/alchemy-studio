@@ -99,12 +99,12 @@ Not a numbered milestone — a presentation-layer pass across the whole app, run
 **Estimated effort:** M
 **Risk:** needs its own state machine (`requested → quoted → accepted/declined → paid`), distinct from the catalog order state machine but converging with it after payment. **Resolved deliberately, not by default**: a custom-quote acceptance reuses the exact same `Order`/`Payment`/webhook machinery as a catalog order (single source of truth for payment state stays on `Order.Status`), rather than inventing a parallel payment path — see ADR-016.
 
-### M6 — Admin panel & order management — backend done, frontend pending
+### M6 — Admin panel & order management — code complete, needs Zee's browser verification
 **Goal:** admin can see and manage all orders, update fulfillment status, view a basic dashboard.
 **Depends on:** M4, M5
 **Definition of Done:**
   - [x] Backend feature works end-to-end — verified against the real database and the real Razorpay test API, including a genuine refund created and confirmed via a real refund ID, not simulated. Full detail in ADR-017.
-  - [ ] Frontend (admin orders list/detail, fulfillment UI, refund button, dashboard with charts) — not started
+  - [x] Frontend built: admin orders list/detail (`/admin/orders`), fulfillment controls, a real refund button, a charted dashboard (`/admin/dashboard`, recharts) with revenue trend + status breakdown, and the custom-orders admin view links through to the shared order-detail page for fulfillment once a request is Accepted.
   - [x] Automated tests — `dotnet test` 21/21 passing (no new tests added; same integration-test-DB gap as every prior milestone)
   - [x] Error + loading + empty states (invalid fulfillment transitions, refund guards, unpaid-order guards) handled server-side
   - [x] No new lint/type errors
