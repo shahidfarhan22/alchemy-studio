@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/Button";
 
 // Catches failures from the Server Component fetches in this route segment
 // (products/page.tsx, products/[slug]/page.tsx) -- e.g. the backend being
@@ -25,14 +26,12 @@ export default function ProductsError({ error, reset }: { error: Error & { diges
   }
 
   return (
-    <main className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
-      <h1 className="text-xl font-semibold">Couldn&apos;t load products</h1>
-      <p className="text-gray-600 max-w-sm">
+    <main className="flex-1 flex flex-col items-center justify-center gap-5 px-6 py-20 text-center">
+      <h1 className="font-serif text-2xl">Couldn&apos;t load products</h1>
+      <p className="text-muted font-sans max-w-sm">
         Something went wrong reaching the store. This is usually temporary — please try again in a moment.
       </p>
-      <button onClick={handleRetry} className="rounded bg-black text-white px-4 py-2 text-sm">
-        Try again
-      </button>
+      <Button onClick={handleRetry}>Try again</Button>
     </main>
   );
 }

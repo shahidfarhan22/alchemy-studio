@@ -3,6 +3,9 @@ import { getPublicProductBySlug } from "@/lib/catalog-api";
 import { PublicApiError } from "@/lib/public-api";
 import { formatPrice } from "@/lib/catalog-types";
 import { AddToCartButton } from "./AddToCartButton";
+import { Container } from "@/components/ui/Container";
+import { EyebrowLabel } from "@/components/ui/EyebrowLabel";
+import { HairlineRule } from "@/components/ui/HairlineRule";
 
 // See public-api.ts / products/page.tsx for why this is force-dynamic
 // rather than statically generated.
@@ -17,28 +20,34 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   });
 
   return (
-    <main className="flex-1 max-w-3xl mx-auto w-full p-6">
-      <div className="grid sm:grid-cols-2 gap-8">
-        <div className="aspect-square bg-gray-100 rounded overflow-hidden">
-          {product.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">No image</div>
-          )}
-        </div>
+    <main className="flex-1 py-16">
+      <Container size="lg">
+        <div className="grid sm:grid-cols-2 gap-12">
+          <div className="aspect-square bg-surface overflow-hidden">
+            {product.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-muted text-sm font-sans">No image</div>
+            )}
+          </div>
 
-        <div>
-          <p className="text-sm text-gray-500">{product.category.name}</p>
-          <h1 className="text-2xl font-semibold mt-1">{product.name}</h1>
-          <p className="text-xl mt-2">{formatPrice(product.priceInPaise, product.currency)}</p>
-          <p className={`text-sm mt-1 ${product.inStock ? "text-green-700" : "text-red-600"}`}>
-            {product.inStock ? "In stock" : "Out of stock"}
-          </p>
-          <p className="mt-4 text-gray-700 whitespace-pre-wrap">{product.description}</p>
-          <AddToCartButton productId={product.id} inStock={product.inStock} />
+          <div>
+            <EyebrowLabel className="block">{product.category.name}</EyebrowLabel>
+            <h1 className="font-serif text-3xl mt-2">{product.name}</h1>
+            <p className="font-sans text-xl mt-3 text-text">{formatPrice(product.priceInPaise, product.currency)}</p>
+            <p className={`text-xs uppercase tracking-eyebrow mt-2 font-sans ${product.inStock ? "text-success" : "text-danger"}`}>
+              {product.inStock ? "In stock" : "Out of stock"}
+            </p>
+
+            <HairlineRule className="my-6" />
+
+            <p className="text-muted font-sans whitespace-pre-wrap leading-relaxed">{product.description}</p>
+
+            <AddToCartButton productId={product.id} inStock={product.inStock} />
+          </div>
         </div>
-      </div>
+      </Container>
     </main>
   );
 }

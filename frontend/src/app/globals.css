@@ -1,26 +1,61 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-bg: #0a0a0b;
+  --color-surface: #100f10;
+  --color-text: #f0ede4;
+  --color-muted: #8b877e;
+  --color-gold: #c9a227;
+  --color-gold-hover: #dab949;
+  --color-hairline: #232022;
+
+  /* Semantic status tones -- deliberately separate from --color-gold, which
+     is reserved for the brand accent (hairlines, focus, CTAs), not reused
+     as a general-purpose color. */
+  --color-danger: #b3413a;
+  --color-danger-surface: #1c1112;
+  --color-success: #5c8a63;
+  --color-warning: #9c7a3f;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-text: var(--color-text);
+  --color-muted: var(--color-muted);
+  --color-gold: var(--color-gold);
+  --color-gold-hover: var(--color-gold-hover);
+  --color-hairline: var(--color-hairline);
+  --color-danger: var(--color-danger);
+  --color-danger-surface: var(--color-danger-surface);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-serif: var(--font-bodoni-moda);
+  --font-sans: var(--font-public-sans);
+
+  --tracking-eyebrow: 0.14em;
+  --tracking-eyebrow-wide: 0.32em;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+/* The app has no custom focus styling anywhere -- default browser focus
+   rings are low-contrast/broken-looking on a near-black background, so
+   every interactive element needs a visible, deliberate one. */
+*:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

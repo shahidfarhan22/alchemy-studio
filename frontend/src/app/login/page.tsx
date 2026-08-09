@@ -6,6 +6,12 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { loginSchema } from "@/lib/auth-schemas";
 import { ApiError } from "@/lib/api-client";
+import { PageHeading } from "@/components/ui/PageHeading";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { Label } from "@/components/ui/Label";
+import { Input } from "@/components/ui/Input";
+import { FieldError } from "@/components/ui/FieldError";
+import { Button } from "@/components/ui/Button";
 
 // useSearchParams() requires a Suspense boundary in the App Router --
 // without it, `next build` fails outright, not just a lint warning.
@@ -54,54 +60,47 @@ function LoginForm() {
   }
 
   return (
-    <main className="flex-1 flex items-center justify-center p-6">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4" noValidate>
-        <h1 className="text-2xl font-semibold">Log in</h1>
+    <main className="flex-1 flex items-center justify-center px-6 py-20">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-6" noValidate>
+        <PageHeading>Log in</PageHeading>
 
-        {formError && (
-          <p role="alert" className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">
-            {formError}
-          </p>
-        )}
+        {formError && <ErrorBanner>{formError}</ErrorBanner>}
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium mb-1">Email</label>
-          <input
+          <Label htmlFor="email">Email</Label>
+          <Input
             id="email"
             type="email"
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2"
-            aria-invalid={!!fieldErrors.email}
+            invalid={!!fieldErrors.email}
           />
-          {fieldErrors.email && <p className="text-sm text-red-600 mt-1">{fieldErrors.email}</p>}
+          <FieldError>{fieldErrors.email}</FieldError>
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium mb-1">Password</label>
-          <input
+          <Label htmlFor="password">Password</Label>
+          <Input
             id="password"
             type="password"
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2"
-            aria-invalid={!!fieldErrors.password}
+            invalid={!!fieldErrors.password}
           />
-          {fieldErrors.password && <p className="text-sm text-red-600 mt-1">{fieldErrors.password}</p>}
+          <FieldError>{fieldErrors.password}</FieldError>
         </div>
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full rounded bg-black text-white py-2 disabled:opacity-50"
-        >
-          {isSubmitting ? "Logging in..." : "Log in"}
-        </button>
+        <Button type="submit" disabled={isSubmitting} fullWidth>
+          {isSubmitting ? "Logging in…" : "Log in"}
+        </Button>
 
-        <p className="text-sm text-gray-600">
-          No account? <Link href={`/register${redirectTo !== "/" ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`} className="underline">Register</Link>
+        <p className="text-sm text-muted font-sans">
+          No account?{" "}
+          <Link href={`/register${redirectTo !== "/" ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`} className="text-gold hover:text-gold-hover">
+            Register
+          </Link>
         </p>
       </form>
     </main>

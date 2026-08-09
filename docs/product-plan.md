@@ -14,6 +14,11 @@ See `docs/requirements.md` for the underlying requirements this plan implements.
 
 Each milestone is independently implementable, testable, and committable. None is "done" until every Definition of Done box is checked (see `MASTER-PROMPT.md` §2).
 
+### Cross-cutting: visual identity ("The Vault") — 🔶 IN PROGRESS
+Not a numbered milestone — a presentation-layer pass across the whole app, run alongside the milestone work rather than blocking it. See ADR-015 (`docs/decisions.md`) for the full design rationale (six mockups compared, palette/font decisions) and `docs/progress.md` for the session log.
+  - [x] PR 1 — foundation (design tokens, fonts, shared component library, site header/footer) + every customer-facing page (home, catalog, cart, checkout, order status, auth, error boundaries) — code complete, built and lint-clean, awaiting Zee's browser sign-off
+  - [ ] PR 2 — admin panel (`/admin/*`) restyle — not started
+
 ### M0 — Repo & tooling setup — ✅ DONE (2026-08-09)
 **Goal:** a working local dev environment both of us can run.
 **Files touched:** `.gitignore`, `.env.example`, `frontend/`, `backend/`, `docs/`, `AGENTS.md`, `README.md`

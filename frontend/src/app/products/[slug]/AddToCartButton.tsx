@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { addToCart } from "@/lib/cart-api";
 import { ApiError } from "@/lib/api-client";
+import { Button } from "@/components/ui/Button";
 
 export function AddToCartButton({ productId, inStock }: { productId: string; inStock: boolean }) {
   const [status, setStatus] = useState<"idle" | "adding" | "added">("idle");
@@ -22,28 +22,34 @@ export function AddToCartButton({ productId, inStock }: { productId: string; inS
   }
 
   if (!inStock) {
-    return <button disabled className="rounded bg-gray-300 text-white px-4 py-2 mt-4">Out of stock</button>;
+    return (
+      <div className="mt-8">
+        <Button disabled>Out of stock</Button>
+      </div>
+    );
   }
 
   if (status === "added") {
     return (
-      <div className="mt-4 flex items-center gap-3">
-        <span className="text-green-700 text-sm">Added to cart.</span>
-        <Link href="/cart" className="underline text-sm">View cart</Link>
+      <div className="mt-8 flex items-center gap-4">
+        <span className="text-xs uppercase tracking-eyebrow text-success">Added to cart</span>
+        <Button href="/cart" variant="ghost">
+          View cart →
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="mt-4">
-      <button
-        onClick={handleAdd}
-        disabled={status === "adding"}
-        className="rounded bg-black text-white px-4 py-2 disabled:opacity-50"
-      >
-        {status === "adding" ? "Adding..." : "Add to cart"}
-      </button>
-      {error && <p role="alert" className="text-sm text-red-600 mt-2">{error}</p>}
+    <div className="mt-8">
+      <Button onClick={handleAdd} disabled={status === "adding"} variant="outline">
+        {status === "adding" ? "Adding…" : "Add to cart"}
+      </Button>
+      {error && (
+        <p role="alert" className="text-sm text-danger mt-3">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

@@ -11,6 +11,15 @@ import { createOrder } from "@/lib/orders-api";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import { formatPrice } from "@/lib/catalog-types";
 import { ApiError } from "@/lib/api-client";
+import { Container } from "@/components/ui/Container";
+import { PageHeading } from "@/components/ui/PageHeading";
+import { EyebrowLabel } from "@/components/ui/EyebrowLabel";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { HairlineRule } from "@/components/ui/HairlineRule";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { FieldError } from "@/components/ui/FieldError";
+import { LineItemRow } from "@/components/catalog/LineItemRow";
 
 export default function CheckoutPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -43,7 +52,13 @@ export default function CheckoutPage() {
   }, [user]);
 
   if (authLoading || !user) {
-    return <main className="flex-1 p-6 text-gray-500">Loading...</main>;
+    return (
+      <main className="flex-1 py-16">
+        <Container>
+          <p className="text-muted font-sans">Loading…</p>
+        </Container>
+      </main>
+    );
   }
 
   async function handlePayment() {
@@ -80,83 +95,100 @@ export default function CheckoutPage() {
   }
 
   return (
-    <main className="flex-1 max-w-2xl mx-auto w-full p-6">
-      <h1 className="text-2xl font-semibold mb-6">Checkout</h1>
+    <main className="flex-1 py-16">
+      <Container>
+        <PageHeading className="mb-8">Checkout</PageHeading>
 
-      {error && <p role="alert" className="text-sm text-red-600 bg-red-50 rounded px-3 py-2 mb-4">{error}</p>}
+        {error && <ErrorBanner>{error}</ErrorBanner>}
 
-      <section className="mb-8">
-        <h2 className="font-medium mb-3">Order summary</h2>
-        {cart === null ? (
-          <p className="text-gray-500 text-sm">Loading...</p>
-        ) : (
-          <>
-            <ul className="divide-y text-sm">
-              {cart.items.map((item) => (
-                <li key={item.productId} className="py-2 flex justify-between">
-                  <span>{item.productName} × {item.quantity}</span>
-                  <span>{formatPrice(item.lineTotalInPaise, item.currency)}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="flex justify-between font-medium pt-2 border-t mt-2">
-              <span>Subtotal</span>
-              <span>{formatPrice(cart.subtotalInPaise, cart.currency)}</span>
-            </div>
-          </>
-        )}
-      </section>
-
-      <section className="mb-8">
-        <h2 className="font-medium mb-3">Shipping address</h2>
-        {addresses === null ? (
-          <p className="text-gray-500 text-sm">Loading...</p>
-        ) : (
-          <>
-            {addresses.length > 0 && (
-              <div className="space-y-2 mb-3">
-                {addresses.map((a) => (
-                  <label key={a.id} className="flex items-start gap-2 text-sm border rounded p-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="address"
-                      checked={selectedAddressId === a.id}
-                      onChange={() => setSelectedAddressId(a.id)}
-                      className="mt-1"
-                    />
-                    <span>
-                      <strong>{a.fullName}</strong> — {a.line1}{a.line2 ? `, ${a.line2}` : ""}, {a.city}, {a.state} {a.postalCode} — {a.phone}
-                    </span>
-                  </label>
+        <section className="mt-8">
+          <EyebrowLabel as="h2" className="block mb-4">
+            Order summary
+          </EyebrowLabel>
+          {cart === null ? (
+            <p className="text-muted font-sans text-sm">Loading…</p>
+          ) : (
+            <>
+              <ul className="divide-y divide-hairline">
+                {cart.items.map((item) => (
+                  <LineItemRow
+                    key={item.productId}
+                    name={item.productName}
+                    subtitle={`Qty ${item.quantity}`}
+                    right={<span className="text-text">{formatPrice(item.lineTotalInPaise, item.currency)}</span>}
+                  />
                 ))}
+              </ul>
+              <HairlineRule variant="gold" className="mt-4" />
+              <div className="mt-4 flex justify-between items-baseline">
+                <span className="font-serif text-lg">Subtotal</span>
+                <span className="font-serif text-lg">{formatPrice(cart.subtotalInPaise, cart.currency)}</span>
               </div>
-            )}
+            </>
+          )}
+        </section>
 
-            {!showNewAddressForm ? (
-              <button onClick={() => setShowNewAddressForm(true)} className="text-sm underline">
-                + Add a new address
-              </button>
-            ) : (
-              <NewAddressForm
-                onCreated={(created) => {
-                  setAddresses((prev) => [...(prev ?? []), created]);
-                  setSelectedAddressId(created.id);
-                  setShowNewAddressForm(false);
-                }}
-                onCancel={addresses.length > 0 ? () => setShowNewAddressForm(false) : undefined}
-              />
-            )}
-          </>
-        )}
-      </section>
+        <section className="mt-12">
+          <EyebrowLabel as="h2" className="block mb-4">
+            Shipping address
+          </EyebrowLabel>
+          {addresses === null ? (
+            <p className="text-muted font-sans text-sm">Loading…</p>
+          ) : (
+            <>
+              {addresses.length > 0 && (
+                <div className="space-y-3 mb-4">
+                  {addresses.map((a) => (
+                    <label
+                      key={a.id}
+                      className={`flex items-start gap-3 text-sm font-sans border px-4 py-3 cursor-pointer transition-colors ${
+                        selectedAddressId === a.id ? "border-gold" : "border-hairline"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="address"
+                        checked={selectedAddressId === a.id}
+                        onChange={() => setSelectedAddressId(a.id)}
+                        className="mt-1 accent-[#c9a227]"
+                      />
+                      <span className="text-muted">
+                        <strong className="text-text font-medium">{a.fullName}</strong> — {a.line1}
+                        {a.line2 ? `, ${a.line2}` : ""}, {a.city}, {a.state} {a.postalCode} — {a.phone}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
 
-      <button
-        onClick={handlePayment}
-        disabled={isPaying || !selectedAddressId || !cart || cart.items.length === 0}
-        className="w-full rounded bg-black text-white py-3 disabled:opacity-50"
-      >
-        {isPaying ? "Opening payment..." : "Continue to payment"}
-      </button>
+              {!showNewAddressForm ? (
+                <Button variant="ghost" onClick={() => setShowNewAddressForm(true)}>
+                  + Add a new address
+                </Button>
+              ) : (
+                <NewAddressForm
+                  onCreated={(created) => {
+                    setAddresses((prev) => [...(prev ?? []), created]);
+                    setSelectedAddressId(created.id);
+                    setShowNewAddressForm(false);
+                  }}
+                  onCancel={addresses.length > 0 ? () => setShowNewAddressForm(false) : undefined}
+                />
+              )}
+            </>
+          )}
+        </section>
+
+        <div className="mt-12">
+          <Button
+            onClick={handlePayment}
+            disabled={isPaying || !selectedAddressId || !cart || cart.items.length === 0}
+            fullWidth
+          >
+            {isPaying ? "Opening payment…" : "Continue to payment"}
+          </Button>
+        </div>
+      </Container>
     </main>
   );
 }
@@ -194,45 +226,56 @@ function NewAddressForm({ onCreated, onCancel }: { onCreated: (a: AddressDto) =>
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 border rounded p-3">
-      {formError && <p role="alert" className="text-sm text-red-600">{formError}</p>}
-      <input placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)}
-        className="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
-      {fieldErrors.fullName && <p className="text-sm text-red-600">{fieldErrors.fullName}</p>}
+    <form onSubmit={handleSubmit} className="space-y-4 border border-hairline p-5">
+      {formError && <ErrorBanner>{formError}</ErrorBanner>}
 
-      <input placeholder="Address line 1" value={line1} onChange={(e) => setLine1(e.target.value)}
-        className="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
-      {fieldErrors.line1 && <p className="text-sm text-red-600">{fieldErrors.line1}</p>}
-
-      <input placeholder="Address line 2 (optional)" value={line2} onChange={(e) => setLine2(e.target.value)}
-        className="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
-
-      <div className="grid grid-cols-2 gap-2">
-        <input placeholder="City" value={city} onChange={(e) => setCity(e.target.value)}
-          className="rounded border border-gray-300 px-3 py-2 text-sm" />
-        <input placeholder="State" value={state} onChange={(e) => setState(e.target.value)}
-          className="rounded border border-gray-300 px-3 py-2 text-sm" />
+      <div>
+        <Input
+          placeholder="Full name"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          invalid={!!fieldErrors.fullName}
+        />
+        <FieldError>{fieldErrors.fullName}</FieldError>
       </div>
-      {(fieldErrors.city || fieldErrors.state) && (
-        <p className="text-sm text-red-600">{fieldErrors.city || fieldErrors.state}</p>
-      )}
 
-      <div className="grid grid-cols-2 gap-2">
-        <input placeholder="Postal code" value={postalCode} onChange={(e) => setPostalCode(e.target.value)}
-          className="rounded border border-gray-300 px-3 py-2 text-sm" />
-        <input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)}
-          className="rounded border border-gray-300 px-3 py-2 text-sm" />
+      <div>
+        <Input
+          placeholder="Address line 1"
+          value={line1}
+          onChange={(e) => setLine1(e.target.value)}
+          invalid={!!fieldErrors.line1}
+        />
+        <FieldError>{fieldErrors.line1}</FieldError>
       </div>
-      {(fieldErrors.postalCode || fieldErrors.phone) && (
-        <p className="text-sm text-red-600">{fieldErrors.postalCode || fieldErrors.phone}</p>
-      )}
 
-      <div className="flex gap-2">
-        <button type="submit" disabled={isSubmitting} className="rounded bg-black text-white px-4 py-2 text-sm disabled:opacity-50">
-          {isSubmitting ? "Saving..." : "Save address"}
-        </button>
+      <Input placeholder="Address line 2 (optional)" value={line2} onChange={(e) => setLine2(e.target.value)} />
+
+      <div className="grid grid-cols-2 gap-3">
+        <Input placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} invalid={!!fieldErrors.city} />
+        <Input placeholder="State" value={state} onChange={(e) => setState(e.target.value)} invalid={!!fieldErrors.state} />
+      </div>
+      <FieldError>{fieldErrors.city || fieldErrors.state}</FieldError>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Input
+          placeholder="Postal code"
+          value={postalCode}
+          onChange={(e) => setPostalCode(e.target.value)}
+          invalid={!!fieldErrors.postalCode}
+        />
+        <Input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} invalid={!!fieldErrors.phone} />
+      </div>
+      <FieldError>{fieldErrors.postalCode || fieldErrors.phone}</FieldError>
+
+      <div className="flex items-center gap-6 pt-1">
+        <Button type="submit" disabled={isSubmitting} variant="outline">
+          {isSubmitting ? "Saving…" : "Save address"}
+        </Button>
         {onCancel && (
-          <button type="button" onClick={onCancel} className="text-sm underline">Cancel</button>
+          <Button type="button" variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
         )}
       </div>
     </form>
