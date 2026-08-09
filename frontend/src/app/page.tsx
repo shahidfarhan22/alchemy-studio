@@ -13,7 +13,10 @@ export default function Home() {
     <main className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
       <h1 className="text-2xl font-semibold">Alchemy Studio</h1>
 
-      <Link href="/products" className="underline">Browse products</Link>
+      <div className="flex gap-4">
+        <Link href="/products" className="underline">Browse products</Link>
+        <Link href="/cart" className="underline">Cart</Link>
+      </div>
 
       {isLoading ? (
         <p className="text-gray-500">Loading...</p>

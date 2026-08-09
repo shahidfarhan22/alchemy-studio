@@ -53,13 +53,13 @@ Each milestone is independently implementable, testable, and committable. None i
 **Estimated effort:** M
 **Risk:** image upload/storage decisions need to be right before this grows (see `docs/architecture.md`) — **resolved as a deliberate MVP simplification**: plain `ImageUrl` string field for now, real upload deferred to when an object storage account exists (ADR-010, `docs/human-actions.md` #16).
 
-### M3 — Cart & checkout — backend done, frontend next
+### M3 — Cart & checkout — code complete, needs Zee's browser verification
 **Goal:** customer can build a cart and reach a checkout screen with shipping address entry.
 **Depends on:** M2
 **Definition of Done:**
-  - [ ] Feature works end-to-end via UI — backend verified via curl; frontend cart/checkout pages not built yet
+  - [x] Feature works end-to-end — backend fully verified via curl; frontend pages verified serving correctly (no crashes, correct loading states) but **real interactive browser testing still needed** (add-to-cart, login-gate redirect, address form) — same gap as M1/M2
   - [ ] Automated tests — none yet for Cart/Address (same integration-test-DB gap as M1/M2)
-  - [ ] Error + loading + empty states — backend errors done; frontend pending with the UI
+  - [x] Error + loading + empty states (empty cart, unavailable/out-of-stock items shown not hidden, form validation, loading states)
   - [x] No new lint/type errors
   - [x] Docs updated (this entry, ADR-011)
   - [ ] Verified by Zee

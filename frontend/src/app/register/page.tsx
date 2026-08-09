@@ -1,15 +1,27 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { registerSchema } from "@/lib/auth-schemas";
 import { ApiError } from "@/lib/api-client";
 
+// See login/page.tsx -- useSearchParams() requires a Suspense boundary.
 export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const { register } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/";
+
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,7 +45,7 @@ export default function RegisterPage() {
 
     try {
       await register(parsed.data.email, parsed.data.password, parsed.data.displayName);
-      router.push("/");
+      router.push(redirectTo);
     } catch (err) {
       if (err instanceof ApiError && err.details) {
         setFieldErrors(Object.fromEntries(err.details.map((d) => [d.field, d.issue])));
@@ -107,7 +119,7 @@ export default function RegisterPage() {
         </button>
 
         <p className="text-sm text-gray-600">
-          Already have an account? <Link href="/login" className="underline">Log in</Link>
+          Already have an account? <Link href={`/login${redirectTo !== "/" ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`} className="underline">Log in</Link>
         </p>
       </form>
     </main>

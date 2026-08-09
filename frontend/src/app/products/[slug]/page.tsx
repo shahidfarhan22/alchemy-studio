@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getPublicProductBySlug } from "@/lib/catalog-api";
 import { PublicApiError } from "@/lib/public-api";
 import { formatPrice } from "@/lib/catalog-types";
+import { AddToCartButton } from "./AddToCartButton";
 
 // See public-api.ts / products/page.tsx for why this is force-dynamic
 // rather than statically generated.
@@ -35,6 +36,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             {product.inStock ? "In stock" : "Out of stock"}
           </p>
           <p className="mt-4 text-gray-700 whitespace-pre-wrap">{product.description}</p>
+          <AddToCartButton productId={product.id} inStock={product.inStock} />
         </div>
       </div>
     </main>
