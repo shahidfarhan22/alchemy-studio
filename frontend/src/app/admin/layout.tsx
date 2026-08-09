@@ -22,7 +22,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [isLoading, isAdmin, router]);
 
   if (isLoading) {
-    return <main className="flex-1 flex items-center justify-center p-6 text-gray-500">Loading...</main>;
+    return (
+      <main className="flex-1 flex items-center justify-center p-6">
+        <p className="text-muted font-sans">Loading…</p>
+      </main>
+    );
   }
 
   if (!isAdmin) {
@@ -31,10 +35,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex-1 flex flex-col">
-      <nav className="border-b px-6 py-3 flex gap-4 text-sm">
-        <Link href="/admin/products" className="font-medium">Products</Link>
-        <Link href="/admin/categories" className="font-medium">Categories</Link>
-        <Link href="/" className="text-gray-500 ml-auto">Back to store</Link>
+      <nav className="border-b border-hairline px-6 py-4 flex items-center gap-6 text-xs uppercase tracking-eyebrow">
+        <Link href="/admin/products" className="text-text hover:text-gold transition-colors">
+          Products
+        </Link>
+        <Link href="/admin/categories" className="text-text hover:text-gold transition-colors">
+          Categories
+        </Link>
+        <Link href="/" className="text-muted hover:text-text transition-colors ml-auto">
+          Back to store
+        </Link>
       </nav>
       {children}
     </div>

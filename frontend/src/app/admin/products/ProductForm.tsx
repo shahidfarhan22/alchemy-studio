@@ -6,6 +6,13 @@ import { getPublicCategories } from "@/lib/catalog-api";
 import type { CategoryDto, ProductAdminDto } from "@/lib/catalog-types";
 import { ApiError } from "@/lib/api-client";
 import type { ProductFormInput } from "@/lib/catalog-api";
+import { Label } from "@/components/ui/Label";
+import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
+import { Select } from "@/components/ui/Select";
+import { FieldError } from "@/components/ui/FieldError";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { Button } from "@/components/ui/Button";
 
 type Props = {
   initial?: ProductAdminDto;
@@ -69,68 +76,81 @@ export function ProductForm({ initial, onSubmit, submitLabel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-lg space-y-4">
-      {formError && (
-        <p role="alert" className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{formError}</p>
-      )}
+    <form onSubmit={handleSubmit} className="max-w-lg space-y-5">
+      {formError && <ErrorBanner>{formError}</ErrorBanner>}
 
       <div>
-        <label className="block text-sm font-medium mb-1" htmlFor="name">Name</label>
-        <input id="name" value={name} onChange={(e) => setName(e.target.value)}
-          className="w-full rounded border border-gray-300 px-3 py-2" />
-        {fieldErrors.name && <p className="text-sm text-red-600 mt-1">{fieldErrors.name}</p>}
+        <Label htmlFor="name">Name</Label>
+        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} invalid={!!fieldErrors.name} />
+        <FieldError>{fieldErrors.name}</FieldError>
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1" htmlFor="description">Description</label>
-        <textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)}
-          rows={4} className="w-full rounded border border-gray-300 px-3 py-2" />
+        <Label htmlFor="description">Description</Label>
+        <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium mb-1" htmlFor="price">Price (INR)</label>
-          <input id="price" type="number" step="0.01" min="0" value={priceRupees}
+          <Label htmlFor="price">Price (INR)</Label>
+          <Input
+            id="price"
+            type="number"
+            step="0.01"
+            min="0"
+            value={priceRupees}
             onChange={(e) => setPriceRupees(e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2" />
-          {fieldErrors.priceInPaise && <p className="text-sm text-red-600 mt-1">{fieldErrors.priceInPaise}</p>}
+            invalid={!!fieldErrors.priceInPaise}
+          />
+          <FieldError>{fieldErrors.priceInPaise}</FieldError>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1" htmlFor="stock">Stock</label>
-          <input id="stock" type="number" min="0" value={stockQuantity}
+          <Label htmlFor="stock">Stock</Label>
+          <Input
+            id="stock"
+            type="number"
+            min="0"
+            value={stockQuantity}
             onChange={(e) => setStockQuantity(e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2" />
-          {fieldErrors.stockQuantity && <p className="text-sm text-red-600 mt-1">{fieldErrors.stockQuantity}</p>}
+            invalid={!!fieldErrors.stockQuantity}
+          />
+          <FieldError>{fieldErrors.stockQuantity}</FieldError>
         </div>
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1" htmlFor="imageUrl">Image URL (optional)</label>
-        <input id="imageUrl" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
-          placeholder="https://..." className="w-full rounded border border-gray-300 px-3 py-2" />
-        <p className="text-xs text-gray-500 mt-1">
+        <Label htmlFor="imageUrl">Image URL (optional)</Label>
+        <Input id="imageUrl" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." />
+        <p className="text-xs text-muted font-sans mt-1.5">
           Paste a URL to an already-hosted image. Direct upload isn&apos;t built yet.
         </p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1" htmlFor="category">Category</label>
-        <select id="category" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}
-          className="w-full rounded border border-gray-300 px-3 py-2">
+        <Label htmlFor="category">Category</Label>
+        <Select id="category" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
           {categories.length === 0 && <option value="">No categories yet — create one first</option>}
-          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
       </div>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} />
+      <label className="flex items-center gap-2.5 text-sm font-sans text-muted">
+        <input
+          type="checkbox"
+          checked={isPublished}
+          onChange={(e) => setIsPublished(e.target.checked)}
+          className="accent-[#c9a227]"
+        />
         Published (visible to customers)
       </label>
 
-      <button type="submit" disabled={isSubmitting || !categoryId}
-        className="rounded bg-black text-white px-4 py-2 disabled:opacity-50">
-        {isSubmitting ? "Saving..." : submitLabel}
-      </button>
+      <Button type="submit" disabled={isSubmitting || !categoryId}>
+        {isSubmitting ? "Saving…" : submitLabel}
+      </Button>
     </form>
   );
 }
