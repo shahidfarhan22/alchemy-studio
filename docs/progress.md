@@ -2,7 +2,7 @@
 
 ## Current state
 - Phase: M4 — Payments — ✅ DONE. Fully verified with a real browser payment and a genuine Razorpay-initiated webhook through a real `ngrok` tunnel (see ADR-013, `docs/product-plan.md`).
-- Visual identity: mid-rollout. "The Vault" (ADR-015) — PR 1 (foundation + all customer-facing pages) built, awaiting Zee's browser sign-off. PR 2 (admin panel) not started yet.
+- Visual identity: "The Vault" (ADR-015) — PR 1 (foundation + customer-facing) merged. PR 2 (admin panel) code-complete, awaiting Zee's browser sign-off.
 - Next milestone: M5 (custom orders) — not yet started, needs to be confirmed with Zee before beginning. Known small gap to fold in around M5/M6: no order-history or profile page exists yet (see "Open items" below).
 
 ## Environment
@@ -357,3 +357,21 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 - **Real interactive browser verification** — same structural gap as every prior frontend milestone (no browser-automation tool in this environment). Zee needs to click through the full customer journey (browse → cart → checkout → real Razorpay test payment → order status → register/login/logout) to actually sign off — see `docs/product-plan.md`. This also finally closes the still-outstanding M1 browser-click-through gap if done as part of this pass.
 - **PR 2 (admin panel restyle)** — not started. `/admin/*` currently still has the old unstyled UI.
 - Mobile/narrow-viewport behavior of the new `SiteHeader` — no dedicated mobile nav pattern was designed; degrades via flex-wrap but not deliberately tested at phone width.
+
+**PR 1 merged by Zee** — picked up immediately after.
+
+## Session 2026-08-09 (continued) — "The Vault" visual identity, PR 2 (admin panel)
+
+### What changed
+- Restyled every admin page (`admin/layout.tsx`'s nav shell, `admin/products/page.tsx`'s table, `admin/products/ProductForm.tsx`, the `new`/`[id]/edit` wrapper pages, `admin/categories/page.tsx`) onto the same primitives built in PR 1 — full Vault treatment per Zee's earlier confirmation (tokens, fonts, hairlines, eyebrow labels), not a stripped-down tokens-only version. Zero logic changes, same pattern as PR 1.
+- Retrofitted `aria-invalid` onto `ProductForm.tsx`'s fields — it was previously the only form in the app missing it. Came essentially free by routing the form through the shared `Input`/`Select` primitives, which wire `aria-invalid` from an `invalid` prop automatically.
+- Left as-is per the plan's confirmed defaults: the admin products table stays a plain functional `<table>` (not restyled into cards or anything fancier — scanning/sorting by column is the actual need here), and the delete confirmation stays the native browser `confirm()` dialog (can't be restyled, out of scope for a visual pass).
+
+### What was verified, and how
+- `npm run lint`: clean. `npm run build`: clean.
+- Full-repo grep for leftover raw Tailwind `gray-`/`red-`/`green-`/`amber-` utility classes across `app/` and `components/`: **zero matches** — confirms every page in the entire app (not just customer-facing) is now on the token system.
+- Started the real dev server against the real backend and `curl`'d `/admin/products`, `/admin/categories`, `/admin/products/new` — all 200, no hydration-error markers. These pages redirect non-admins client-side, so `curl` only confirms the initial render is error-free, not the authenticated table/form content — that needs Zee's real login.
+
+### What is unverified / explicitly deferred
+- Real interactive verification as admin — log in, create a category, create/edit/delete a product, confirm the restyled table/forms are usable and the new `aria-invalid` states actually trigger on bad input. Same structural limitation as every prior frontend milestone (no browser automation available here).
+- This closes out the visual-identity workstream from ADR-015 — both PRs code-complete. Next up (not started): M5, custom order requests + quoting.

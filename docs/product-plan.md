@@ -16,8 +16,8 @@ Each milestone is independently implementable, testable, and committable. None i
 
 ### Cross-cutting: visual identity ("The Vault") — 🔶 IN PROGRESS
 Not a numbered milestone — a presentation-layer pass across the whole app, run alongside the milestone work rather than blocking it. See ADR-015 (`docs/decisions.md`) for the full design rationale (six mockups compared, palette/font decisions) and `docs/progress.md` for the session log.
-  - [x] PR 1 — foundation (design tokens, fonts, shared component library, site header/footer) + every customer-facing page (home, catalog, cart, checkout, order status, auth, error boundaries) — code complete, built and lint-clean, awaiting Zee's browser sign-off
-  - [ ] PR 2 — admin panel (`/admin/*`) restyle — not started
+  - [x] PR 1 — foundation (design tokens, fonts, shared component library, site header/footer) + every customer-facing page (home, catalog, cart, checkout, order status, auth, error boundaries) — merged. CI green; full interactive browser click-through (checkout/payment/register-login-logout) not yet explicitly confirmed by Zee — same outstanding verification style as M1-M3.
+  - [x] PR 2 — admin panel (`/admin/*`) restyle — code complete, built and lint-clean, awaiting Zee's browser sign-off
 
 ### M0 — Repo & tooling setup — ✅ DONE (2026-08-09)
 **Goal:** a working local dev environment both of us can run.

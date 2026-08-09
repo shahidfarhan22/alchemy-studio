@@ -5,6 +5,8 @@ import { ProductForm } from "../../ProductForm";
 import { getAdminProducts, updateProduct } from "@/lib/catalog-api";
 import type { ProductAdminDto } from "@/lib/catalog-types";
 import type { ProductFormInput } from "@/lib/catalog-api";
+import { Container } from "@/components/ui/Container";
+import { PageHeading } from "@/components/ui/PageHeading";
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -17,10 +19,22 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   }, [id]);
 
   if (product === undefined) {
-    return <main className="flex-1 p-6 text-gray-500">Loading...</main>;
+    return (
+      <main className="flex-1 py-16">
+        <Container size="xl">
+          <p className="text-muted font-sans">Loading…</p>
+        </Container>
+      </main>
+    );
   }
   if (product === null) {
-    return <main className="flex-1 p-6 text-red-600">Product not found.</main>;
+    return (
+      <main className="flex-1 py-16">
+        <Container size="xl">
+          <p className="text-danger font-sans">Product not found.</p>
+        </Container>
+      </main>
+    );
   }
 
   function handleSubmit(input: ProductFormInput) {
@@ -28,9 +42,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   }
 
   return (
-    <main className="flex-1 p-6 max-w-4xl mx-auto w-full">
-      <h1 className="text-2xl font-semibold mb-6">Edit product</h1>
-      <ProductForm initial={product} submitLabel="Save changes" onSubmit={handleSubmit} />
+    <main className="flex-1 py-16">
+      <Container size="xl">
+        <PageHeading eyebrow="Admin" className="mb-10">
+          Edit product
+        </PageHeading>
+        <ProductForm initial={product} submitLabel="Save changes" onSubmit={handleSubmit} />
+      </Container>
     </main>
   );
 }
