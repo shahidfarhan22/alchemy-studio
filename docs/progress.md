@@ -1,9 +1,9 @@
 # Progress Log
 
 ## Current state
-- Phase: M4 — Payments, backend done and verified against the real Razorpay test API, frontend (checkout widget) not started
+- Phase: M4 — Payments, code complete (backend PR #15 merged, frontend PR pending). Needs: `ngrok` + real Razorpay webhook test, and Zee's browser verification.
 - Last completed milestone: M3 — Cart & checkout, fully merged (PR #13, #14). M1/M2 also functionally complete, pending Zee's real-browser click-through (recurring open item, see below).
-- Next milestone: M4 frontend (Razorpay checkout widget integration) — see `docs/product-plan.md`
+- Next milestone: `ngrok` + real webhook setup, then M5 (custom orders) — see `docs/product-plan.md`
 
 ## Environment
 - Repo path: `D:\New Project`, branch `main`. GitHub: [shahidfarhan22/alchemy-studio](https://github.com/shahidfarhan22/alchemy-studio) (public)
@@ -283,3 +283,19 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 - Frontend: no checkout widget integration yet — customer currently has no way to actually pay through the UI.
 - Reconciliation job (poll for stuck pending payments, per `docs/architecture.md`) — not built, flagged as a known gap, not silently dropped.
 - No automated tests for the payment flow yet — same integration-test-database gap tracked since M1.
+
+## Session 2026-08-09 (continued) — M4 frontend (Razorpay checkout widget)
+
+### What changed
+- `orders-api.ts` (typed client), `razorpay-checkout.ts` (loads Razorpay's hosted `checkout.js` from their CDN — the standard, documented integration pattern, not something to self-host), `/orders/[id]` (polls order status, never trusts the widget's client-side success callback for anything beyond "go start polling" — matches `docs/architecture.md`'s "webhooks are the source of truth" taken literally).
+- `/checkout`'s "Continue to payment" button now actually creates the order and opens the real Razorpay widget.
+- **Real lint errors from React's newer purity rules, not just style nitpicks**: the order-status page initially called `Date.now()` and read a ref's value directly during render to compute a "has this timed out" flag — both are flagged by `react-hooks/purity`/`react-hooks/refs` as unsafe (can produce inconsistent results across re-renders). Restructured to track `hasTimedOut` as proper React state, set via a `setTimeout` in the polling effect, rather than deriving it from a ref/wall-clock read at render time.
+
+### What was verified, and how
+- `npm run lint`, `npm run build`: both clean.
+- Full round-trip with both servers running: created a real order via the API (real Razorpay test order ID returned), confirmed `/orders/[id]` serves correctly with the right pre-hydration state, fired a hand-signed webhook (same technique as the backend PR) to move the order to `Paid`, then re-fetched the order detail endpoint and confirmed it returns exactly the data the frontend's polling would consume to show "Payment successful."
+- Test data cleaned up, both servers stopped.
+
+### What is unverified
+- The actual Razorpay widget opening and completing a payment in a real browser (test-mode card numbers) — needs Zee. Same for the polling transition actually being observed live rather than confirmed via two separate API snapshots.
+- Real Razorpay-initiated webhook (still needs `ngrok`, per the backend PR's notes).

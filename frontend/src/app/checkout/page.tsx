@@ -7,6 +7,8 @@ import { getCart } from "@/lib/cart-api";
 import type { CartDto } from "@/lib/cart-api";
 import { getAddresses, createAddress } from "@/lib/address-api";
 import type { AddressDto } from "@/lib/address-api";
+import { createOrder } from "@/lib/orders-api";
+import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import { formatPrice } from "@/lib/catalog-types";
 import { ApiError } from "@/lib/api-client";
 
@@ -27,6 +29,7 @@ export default function CheckoutPage() {
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPaying, setIsPaying] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -41,6 +44,39 @@ export default function CheckoutPage() {
 
   if (authLoading || !user) {
     return <main className="flex-1 p-6 text-gray-500">Loading...</main>;
+  }
+
+  async function handlePayment() {
+    if (!selectedAddressId) return;
+    setError(null);
+    setIsPaying(true);
+
+    try {
+      const order = await createOrder(selectedAddressId);
+
+      await openRazorpayCheckout({
+        key: order.razorpayKeyId,
+        amount: order.amountInPaise,
+        currency: order.currency,
+        order_id: order.razorpayOrderId,
+        name: "Alchemy Studio",
+        prefill: { name: user!.displayName, email: user!.email },
+        handler: () => {
+          // This callback is UX-only -- it just tells us to go watch for the
+          // real confirmation. The order page polls the backend, which only
+          // ever changes status once Razorpay's webhook confirms payment
+          // (docs/architecture.md: webhooks are the source of truth, not
+          // the redirect/callback).
+          router.push(`/orders/${order.orderId}`);
+        },
+        modal: {
+          ondismiss: () => setIsPaying(false),
+        },
+      });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't start payment. Please try again.");
+      setIsPaying(false);
+    }
   }
 
   return (
@@ -115,11 +151,11 @@ export default function CheckoutPage() {
       </section>
 
       <button
-        disabled
-        title="Payment isn't built yet -- coming in the next milestone"
-        className="w-full rounded bg-gray-300 text-white py-3 cursor-not-allowed"
+        onClick={handlePayment}
+        disabled={isPaying || !selectedAddressId || !cart || cart.items.length === 0}
+        className="w-full rounded bg-black text-white py-3 disabled:opacity-50"
       >
-        Continue to payment (coming soon)
+        {isPaying ? "Opening payment..." : "Continue to payment"}
       </button>
     </main>
   );
