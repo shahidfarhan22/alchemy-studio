@@ -67,13 +67,13 @@ Each milestone is independently implementable, testable, and committable. None i
 **Decisions:** cart persists server-side for guests too (cookie-tracked, merges into account on login); login required only at checkout, not before adding to cart; cart items always reflect live price/stock; unavailable items stay visible in the cart (marked, not silently removed) — see ADR-011.
 **Risk:** cart state design (server-side vs. client-only) affects everything downstream — decide deliberately, not by default.
 
-### M4 — Payments (Razorpay) — backend done and verified against real Razorpay test API, frontend next
+### M4 — Payments (Razorpay) — code complete, needs a real webhook test + Zee's browser verification
 **Goal:** customer can pay for an order; payment is verified server-side via webhook, never trusted from the frontend.
 **Depends on:** M3, Razorpay individual-KYC account created (`docs/human-actions.md`) — **revised**: only test-mode keys were actually needed to build this, not full KYC (see `docs/human-actions.md` #17/#18)
 **Definition of Done:**
-  - [ ] Feature works end-to-end via UI — backend fully verified (order creation against the real Razorpay test API, a hand-signed webhook correctly moving an order to Paid + decrementing stock + clearing the cart, idempotent replay, rejected tampered signature); frontend checkout-widget integration not built yet
+  - [x] Feature works end-to-end — backend fully verified against the real Razorpay test API + a hand-signed webhook; frontend (checkout widget, order status polling) built and serving correctly, but **not yet exercised with a real Razorpay-initiated webhook** (needs `ngrok`, human-actions.md #18) **or a real browser click-through**
   - [ ] Automated tests — none yet, same integration-test-DB gap as M1-M3
-  - [ ] Error + loading + empty states — backend done; frontend pending
+  - [x] Error + loading + empty states (payment dismissed/failed, polling timeout, cart/address validation)
   - [x] No new lint/type errors
   - [x] Docs updated (this entry, ADR-012)
   - [ ] Verified by Zee
