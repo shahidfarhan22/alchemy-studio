@@ -56,6 +56,23 @@ export default async function Home() {
           </div>
         )}
       </section>
+
+      <HairlineRule />
+
+      <section className="px-6 py-20 text-center">
+        <EyebrowLabel wide className="block mb-6">
+          Have something specific in mind?
+        </EyebrowLabel>
+        <h2 className="font-serif text-3xl max-w-xl mx-auto text-balance">Commission a custom piece.</h2>
+        <p className="mt-4 text-muted font-sans max-w-lg mx-auto leading-relaxed">
+          Send a description or reference image and we&apos;ll follow up with a quote.
+        </p>
+        <div className="mt-8">
+          <Button href="/custom-orders/new" variant="outline">
+            Start a request
+          </Button>
+        </div>
+      </section>
     </main>
   );
 }

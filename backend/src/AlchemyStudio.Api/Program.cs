@@ -4,6 +4,7 @@ using AlchemyStudio.Api.Addresses;
 using AlchemyStudio.Api.Auth;
 using AlchemyStudio.Api.Catalog;
 using AlchemyStudio.Api.Cart;
+using AlchemyStudio.Api.CustomOrders;
 using AlchemyStudio.Api.Data;
 using AlchemyStudio.Api.ErrorHandling;
 using AlchemyStudio.Api.Orders;
@@ -66,6 +67,7 @@ builder.Services.AddScoped<CartService>();
 builder.Services.AddScoped<AddressService>();
 builder.Services.AddScoped<RazorpayService>();
 builder.Services.AddScoped<OrderService>();
+builder.Services.AddScoped<CustomOrderService>();
 
 var jwtSigningKey = builder.Configuration["Jwt:SigningKey"]
     ?? throw new InvalidOperationException("Jwt:SigningKey is not configured. See AGENTS.md.");

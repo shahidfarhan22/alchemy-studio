@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AlchemyStudio.Api.Addresses;
 using AlchemyStudio.Api.Data;
 using AlchemyStudio.Api.ErrorHandling;
 using Microsoft.EntityFrameworkCore;
@@ -15,8 +16,7 @@ public class OrderService(AppDbContext db, RazorpayService razorpay, ILogger<Ord
             throw new ApiException("CART_EMPTY", "Your cart is empty.", 400);
         }
 
-        var address = await db.Addresses.FirstOrDefaultAsync(a => a.Id == request.AddressId && a.UserId == userId)
-            ?? throw new ApiException("ADDRESS_NOT_FOUND", "Address not found.", 404);
+        var address = await GetOwnedAddressAsync(userId, request.AddressId);
 
         var productIds = cart.Items.Select(i => i.ProductId).ToList();
         var products = await db.Products.Where(p => productIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
@@ -53,20 +53,63 @@ public class OrderService(AppDbContext db, RazorpayService razorpay, ILogger<Ord
             Id = Guid.NewGuid(),
             UserId = userId,
             SubtotalInPaise = subtotal,
-            ShippingAddress = new OrderShippingAddress
-            {
-                FullName = address.FullName,
-                Line1 = address.Line1,
-                Line2 = address.Line2,
-                City = address.City,
-                State = address.State,
-                PostalCode = address.PostalCode,
-                Country = address.Country,
-                Phone = address.Phone,
-            },
+            ShippingAddress = ToShippingAddress(address),
             Items = orderItems,
         };
 
+        return await PersistOrderAndCreateRazorpayOrderAsync(order);
+    }
+
+    // Custom-order acceptance (CustomOrders/CustomOrderService): a single
+    // snapshotted line item for the quoted price, reusing the exact same
+    // Order/Payment/webhook machinery as a catalog checkout -- the only
+    // difference is there's no cart and no real Product behind the item
+    // (OrderItem.ProductId is left null; see OrderItem.cs and the
+    // stock-decrement guard in HandlePaymentCapturedAsync below).
+    public async Task<CreateOrderResponse> CreateOrderForCustomQuoteAsync(Guid userId, Guid addressId, string itemName, long priceInPaise)
+    {
+        var address = await GetOwnedAddressAsync(userId, addressId);
+
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            SubtotalInPaise = priceInPaise,
+            ShippingAddress = ToShippingAddress(address),
+            Items = [
+                new OrderItem
+                {
+                    Id = Guid.NewGuid(),
+                    ProductId = null,
+                    ProductName = itemName,
+                    PriceInPaise = priceInPaise,
+                    Quantity = 1,
+                    LineTotalInPaise = priceInPaise,
+                },
+            ],
+        };
+
+        return await PersistOrderAndCreateRazorpayOrderAsync(order);
+    }
+
+    private async Task<Address> GetOwnedAddressAsync(Guid userId, Guid addressId) =>
+        await db.Addresses.FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId)
+            ?? throw new ApiException("ADDRESS_NOT_FOUND", "Address not found.", 404);
+
+    private static OrderShippingAddress ToShippingAddress(Address address) => new()
+    {
+        FullName = address.FullName,
+        Line1 = address.Line1,
+        Line2 = address.Line2,
+        City = address.City,
+        State = address.State,
+        PostalCode = address.PostalCode,
+        Country = address.Country,
+        Phone = address.Phone,
+    };
+
+    private async Task<CreateOrderResponse> PersistOrderAndCreateRazorpayOrderAsync(Order order)
+    {
         db.Orders.Add(order);
         await db.SaveChangesAsync();
 
@@ -74,11 +117,11 @@ public class OrderService(AppDbContext db, RazorpayService razorpay, ILogger<Ord
         // if this call fails, the customer just sees an error and can retry;
         // no half-committed state either way (order exists but with no
         // RazorpayOrderId, harmless and never shown as payable without one).
-        var razorpayOrderId = razorpay.CreateOrder(subtotal, order.Currency, order.Id.ToString());
+        var razorpayOrderId = razorpay.CreateOrder(order.SubtotalInPaise, order.Currency, order.Id.ToString());
         order.RazorpayOrderId = razorpayOrderId;
         await db.SaveChangesAsync();
 
-        return new CreateOrderResponse(order.Id, razorpayOrderId, subtotal, order.Currency, razorpay.KeyId);
+        return new CreateOrderResponse(order.Id, razorpayOrderId, order.SubtotalInPaise, order.Currency, razorpay.KeyId);
     }
 
     public async Task<List<OrderSummaryDto>> GetOrdersForUserAsync(Guid userId) =>
@@ -188,6 +231,10 @@ public class OrderService(AppDbContext db, RazorpayService razorpay, ILogger<Ord
         // if it ever under-runs rather than silently going negative.
         foreach (var item in order.Items)
         {
+            // Custom-order items (CustomOrders/CustomOrderService) have no
+            // real catalog Product behind them -- nothing to decrement.
+            if (item.ProductId is null) continue;
+
             var affected = await db.Products
                 .Where(p => p.Id == item.ProductId && p.StockQuantity >= item.Quantity)
                 .ExecuteUpdateAsync(setters => setters.SetProperty(p => p.StockQuantity, p => p.StockQuantity - item.Quantity));

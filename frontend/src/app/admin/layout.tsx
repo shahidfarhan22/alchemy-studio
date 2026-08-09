@@ -42,6 +42,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <Link href="/admin/categories" className="text-text hover:text-gold transition-colors">
           Categories
         </Link>
+        <Link href="/admin/custom-orders" className="text-text hover:text-gold transition-colors">
+          Custom Orders
+        </Link>
         <Link href="/" className="text-muted hover:text-text transition-colors ml-auto">
           Back to store
         </Link>

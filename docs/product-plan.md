@@ -85,11 +85,19 @@ Not a numbered milestone — a presentation-layer pass across the whole app, run
 **Estimated effort:** L
 **Risk:** the highest-stakes milestone in the whole project — money correctness, idempotency, and the order state machine all live here. **Two real bugs were caught and fixed before ever touching a real Razorpay account** — see ADR-012 in docs/decisions.md (a config bug that would have broken order creation entirely, and a webhook event-ID bug, verified against Razorpay's actual documentation, that would have made every real webhook delivery fail silently in production).
 
-### M5 — Custom order requests + quoting
+### M5 — Custom order requests + quoting — code complete, needs Zee's browser verification
 **Goal:** customer submits a custom request; admin reviews and sends a quote; customer accepts and pays.
 **Depends on:** M4 (reuses payment flow for the quoted amount)
+**Definition of Done:**
+  - [x] Feature works end-to-end — backend verified via curl against the real database and real webhook-processing code, including the highest-risk path (accept → real Order → hand-signed `payment.captured` webhook → `Paid`) and a same-session regression check confirming the existing catalog checkout/stock-decrement flow is unaffected (ADR-016). Frontend verified via curl/build against the real backend (all new routes 200, no hydration errors, real request data rendered) — **real interactive browser click-through still needed from Zee**.
+  - [x] Frontend built: request form (`/custom-orders/new`), "my requests" list (`/custom-orders`), request detail with accept/decline/cancel (`/custom-orders/[id]`), admin quoting UI (`/admin/custom-orders`). Reuses the M4 Razorpay checkout code as-is for quote acceptance.
+  - [x] Automated tests — `dotnet test` 21/21 passing (no new tests added; same integration-test-DB gap as M1-M4, nothing new here)
+  - [x] Error + loading + empty states (validation errors, invalid-state transitions, quote-expired, empty request list) handled both server- and client-side
+  - [x] No new lint/type errors
+  - [x] Docs updated (this entry, ADR-016)
+  - [ ] Verified by Zee
 **Estimated effort:** M
-**Risk:** needs its own state machine (`requested → quoted → accepted/declined → paid`), distinct from the catalog order state machine but converging with it after payment.
+**Risk:** needs its own state machine (`requested → quoted → accepted/declined → paid`), distinct from the catalog order state machine but converging with it after payment. **Resolved deliberately, not by default**: a custom-quote acceptance reuses the exact same `Order`/`Payment`/webhook machinery as a catalog order (single source of truth for payment state stays on `Order.Status`), rather than inventing a parallel payment path — see ADR-016.
 
 ### M6 — Admin panel & order management
 **Goal:** admin can see and manage all orders, update fulfillment status, view a basic dashboard.
