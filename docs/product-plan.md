@@ -40,13 +40,13 @@ Each milestone is independently implementable, testable, and committable. None i
 **Estimated effort:** M
 **Risk:** getting refresh-token/cookie handling wrong is the easiest way to introduce a security bug — see AGENTS.md auth rules. Mitigated: refresh rotation + reuse-detection tested directly (see docs/progress.md 2026-08-09), and the cross-origin cookie mechanics were proven with curl, not just assumed.
 
-### M2 — Product catalog — backend done, frontend next
+### M2 — Product catalog — code complete, needs Zee's browser verification
 **Goal:** admin can create/edit products with images and stock; customers can browse and view product detail pages.
 **Depends on:** M1 (admin auth)
 **Definition of Done:**
-  - [ ] Feature works end-to-end via UI — backend verified via curl; frontend browsing/admin pages not built yet
-  - [x] Automated tests: `SlugGenerator` unit tests. Full integration coverage blocked on the same open item as M1 auth (docs/progress.md).
-  - [ ] Error + loading + empty states handled — backend error responses done; frontend states pending with the UI
+  - [x] Feature works end-to-end — verified via curl (backend) and curl-against-real-pages (frontend HTML output); **real interactive browser click-through still needed from Zee** (same gap as M1)
+  - [x] Automated tests: `SlugGenerator` unit tests (7). Full integration coverage blocked on the same open item as M1 auth (docs/progress.md).
+  - [x] Error + loading + empty states handled (loading states, empty "no products yet", form validation errors, 404 for missing products)
   - [x] No new lint/type errors
   - [x] Docs updated (this entry, ADR-010)
   - [ ] Verified by Zee
