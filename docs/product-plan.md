@@ -99,11 +99,19 @@ Not a numbered milestone — a presentation-layer pass across the whole app, run
 **Estimated effort:** M
 **Risk:** needs its own state machine (`requested → quoted → accepted/declined → paid`), distinct from the catalog order state machine but converging with it after payment. **Resolved deliberately, not by default**: a custom-quote acceptance reuses the exact same `Order`/`Payment`/webhook machinery as a catalog order (single source of truth for payment state stays on `Order.Status`), rather than inventing a parallel payment path — see ADR-016.
 
-### M6 — Admin panel & order management
+### M6 — Admin panel & order management — code complete, needs Zee's browser verification
 **Goal:** admin can see and manage all orders, update fulfillment status, view a basic dashboard.
 **Depends on:** M4, M5
+**Definition of Done:**
+  - [x] Backend feature works end-to-end — verified against the real database and the real Razorpay test API, including a genuine refund created and confirmed via a real refund ID, not simulated. Full detail in ADR-017.
+  - [x] Frontend built: admin orders list/detail (`/admin/orders`), fulfillment controls, a real refund button, a charted dashboard (`/admin/dashboard`, recharts) with revenue trend + status breakdown, and the custom-orders admin view links through to the shared order-detail page for fulfillment once a request is Accepted.
+  - [x] Automated tests — `dotnet test` 21/21 passing (no new tests added; same integration-test-DB gap as every prior milestone)
+  - [x] Error + loading + empty states (invalid fulfillment transitions, refund guards, unpaid-order guards) handled server-side
+  - [x] No new lint/type errors
+  - [x] Docs updated (this entry, ADR-017)
+  - [ ] Verified by Zee
 **Estimated effort:** M
-**Risk:** every admin action needs a real server-side authorization check — never a hidden button.
+**Risk:** every admin action needs a real server-side authorization check — never a hidden button. Real money movement (refunds) needed the same rigor as M4's payment capture work — see ADR-017 for the two real bugs caught via live data during verification (a fulfillment guard that misread legacy paid orders as unpaid, and a dashboard metric that undercounted them for the same reason).
 
 ### M7 — Emails / notifications
 **Goal:** order confirmation, custom-order quote-ready, and shipping-update emails send reliably and don't land in spam.

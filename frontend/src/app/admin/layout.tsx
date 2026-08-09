@@ -36,6 +36,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex-1 flex flex-col">
       <nav className="border-b border-hairline px-6 py-4 flex items-center gap-6 text-xs uppercase tracking-eyebrow">
+        <Link href="/admin/dashboard" className="text-text hover:text-gold transition-colors">
+          Dashboard
+        </Link>
+        <Link href="/admin/orders" className="text-text hover:text-gold transition-colors">
+          Orders
+        </Link>
         <Link href="/admin/products" className="text-text hover:text-gold transition-colors">
           Products
         </Link>

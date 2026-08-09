@@ -39,6 +39,30 @@ public class RazorpayService
         return (string)order.Attributes["id"];
     }
 
+    // Verified directly against Razorpay's own API docs before writing this
+    // (docs/decisions.md) -- "speed": "normal" is the actual documented
+    // default (5-7 working days, no extra fee), left explicit here rather
+    // than omitted so a future edit can't silently start requesting instant
+    // refunds. "receipt" is Razorpay's own idempotency key for refunds on
+    // the same payment -- passed as our OrderId, so a retried admin click
+    // can't double-refund. The SDK models a refund as an action ON a
+    // fetched Payment object (payment.Refund(...)), matching the REST API's
+    // POST /payments/:id/refund path shape, not a standalone Refund.Create.
+    public (string RefundId, string Status) CreateRefund(string razorpayPaymentId, long amountInPaise, string receiptKey)
+    {
+        var payment = _client.Payment.Fetch(razorpayPaymentId);
+
+        var options = new Dictionary<string, object>
+        {
+            { "amount", amountInPaise },
+            { "speed", "normal" },
+            { "receipt", receiptKey },
+        };
+
+        var refund = payment.Refund(options);
+        return ((string)refund.Attributes["id"], (string)refund.Attributes["status"]);
+    }
+
     // Client-side checkout confirmation -- fast UX feedback only, never the
     // authoritative state change (docs/architecture.md: webhooks are the
     // source of truth, not the redirect callback).

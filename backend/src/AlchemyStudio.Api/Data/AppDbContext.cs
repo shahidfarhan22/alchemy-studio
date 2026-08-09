@@ -95,6 +95,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.HasIndex(o => o.UserId);
             entity.HasIndex(o => o.RazorpayOrderId).IsUnique();
             entity.Property(o => o.Status).HasConversion<string>();
+            entity.Property(o => o.FulfillmentStatus).HasConversion<string>();
             entity.OwnsOne(o => o.ShippingAddress); // stored as columns on Orders, not a separate table
 
             entity.HasMany(o => o.Items)
