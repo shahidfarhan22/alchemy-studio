@@ -14,7 +14,7 @@ export function SiteHeader() {
           Alchemy <span className="text-gold">Studio</span>
         </Link>
 
-        <nav className="flex items-center gap-6 text-xs uppercase tracking-eyebrow text-muted">
+        <nav aria-label="Primary" className="flex items-center gap-6 text-xs uppercase tracking-eyebrow text-muted">
           <Link href="/products" className="hover:text-text transition-colors">
             Collection
           </Link>

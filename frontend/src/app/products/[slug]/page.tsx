@@ -1,3 +1,5 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPublicProductBySlug } from "@/lib/catalog-api";
 import { PublicApiError } from "@/lib/public-api";
@@ -11,10 +13,28 @@ import { HairlineRule } from "@/components/ui/HairlineRule";
 // rather than statically generated.
 export const dynamic = "force-dynamic";
 
+// Memoized so generateMetadata and the page body share one backend call per request.
+const getProduct = cache((slug: string) => getPublicProductBySlug(slug));
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  try {
+    const product = await getProduct(slug);
+    return {
+      title: `${product.name} | Alchemy Studio`,
+      description:
+        product.description || `${product.name} — a limited, individually-numbered miniature from Alchemy Studio.`,
+      openGraph: product.imageUrl ? { images: [{ url: product.imageUrl }] } : undefined,
+    };
+  } catch {
+    return { title: "Miniature | Alchemy Studio" };
+  }
+}
+
 export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
-  const product = await getPublicProductBySlug(slug).catch((err) => {
+  const product = await getProduct(slug).catch((err) => {
     if (err instanceof PublicApiError && err.status === 404) notFound();
     throw err;
   });

@@ -4,7 +4,10 @@
 - Phase: M4 — Payments — ✅ DONE. Fully verified with a real browser payment and a genuine Razorpay-initiated webhook through a real `ngrok` tunnel (see ADR-013, `docs/product-plan.md`).
 - Visual identity: "The Vault" (ADR-015) — both PRs merged, whole app restyled.
 - M5 (custom orders + quoting) — both backend and frontend merged (ADR-016). Awaiting Zee's browser sign-off.
-- M6 (admin order management, fulfillment, refunds, dashboard) — backend and frontend both code-complete (ADR-017), backend verified against the real Razorpay test API. Awaiting Zee's browser sign-off.
+- M6 (admin order management, fulfillment, refunds, dashboard) — backend and frontend both code-complete and merged (ADR-017), backend verified against the real Razorpay test API. Awaiting Zee's browser sign-off.
+- M7 (transactional emails via Resend) — ✅ DONE and merged. Real domain + SPF/DKIM/DMARC live, all three email types verified landing in Zee's real inbox (ADR-018).
+- M8 (legal pages, SEO, accessibility) — code complete on `feat/m8-legal-seo-a11y` (ADR-019), not yet merged. Awaiting Zee's review of the legal page content and a browser click-through.
+- Razorpay live-mode KYC — in progress (Zee started it independently of the milestone sequence, since it has real turnaround lag and doesn't block M8/M9 work).
 
 ## Environment
 - Repo path: `D:\New Project`, branch `main`. GitHub: [shahidfarhan22/alchemy-studio](https://github.com/shahidfarhan22/alchemy-studio) (public)
@@ -13,8 +16,9 @@
 
 ## Open items
 - [ ] Blocked on: nothing currently
-- [ ] Deferred decision: store/brand name → GitHub repo is named `alchemy-studio` as a working name; affects domain, branding — see `docs/requirements.md` open items
-- [ ] Deferred decision: file storage provider, email provider → decided at M2/M7 respectively (`docs/technology-stack.md`)
+- [x] Store/brand name → settled as "Alchemy Studio" in practice (domain, email templates, site copy all use it) — no longer an open decision
+- [ ] Deferred decision: file storage provider → not yet decided, matters once real product photos replace pasted URLs (`docs/technology-stack.md`)
+- [x] Email provider → Resend, decided and shipped at M7
 - [ ] Deferred feature: no order-history ("my orders") or profile *page* exists in the frontend yet — **correction**: the backend endpoint (`GET /api/v1/orders`, `OrderService.GetOrdersForUserAsync`) already exists and works (confirmed directly while investigating M5's Order/Payment code, ADR-016) — this was previously logged here as a backend gap too, which was inaccurate. Only the frontend page is actually missing. Still tracked as a real feature to build alongside M5/M6 rather than bolt on piecemeal.
 
 ## Session 2026-08-08
@@ -480,3 +484,22 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 - No frontend work needed or planned for M7 — emails fire automatically from existing flows, no new UI.
 - `refund.failed`-style negative-path email behavior isn't applicable here (fulfillment/quote/payment-capture don't have an equivalent "failure" email in scope).
 - M7 backend PR not yet opened — in progress immediately after this entry.
+
+## Session 2026-08-11 — M8: legal pages, SEO, accessibility baseline
+
+### What changed
+- Confirmed real policy decisions with Zee before drafting anything: no returns on catalog miniatures except defects/damage, no refunds on accepted custom orders except non-delivery/defect, domestic-India shipping with no separate shipping fee (confirmed against the actual order/checkout code — there's no `ShippingFee` field anywhere, so the policy states what's actually true rather than inventing a promise). Got the real business address and confirmed `contact@alchemystudios.co.in` is a live working inbox before using it as the grievance contact.
+- New pages `/privacy`, `/terms`, `/refund-policy` — all include the grievance-officer block required by India's Consumer Protection (E-Commerce) Rules, 2020. Two small new shared components: `LegalSection`, `GrievanceContact` (reused across all three pages). Linked from a new footer nav.
+- SEO: found and fixed a real gap by reading the existing code — `products/[slug]/page.tsx` had zero per-page metadata, so every product shared the same generic site title in search results. Added `generateMetadata` there (memoized via React's `cache()` so the backend is only called once per request, not twice), plus `metadataBase`/Open Graph/Twitter defaults on the root layout, a live `sitemap.ts` (static routes + real product slugs from the database), and `robots.ts` (blocks admin/cart/checkout/orders/login/register, explicitly allows the one public page — `/custom-orders/new` — inside an otherwise-private prefix).
+- Accessibility: audited what the earlier Vault pass (ADR-015) already covered before adding anything — focus rings, `aria-invalid`, alt text, and `aria-live` on the order-status page were all already in place. Fixed the two real gaps found: added a skip-to-content link, and labeled both `<nav>` landmarks (`Primary` in the header, `Legal` in the new footer nav) now that a page has two of them.
+- Full detail, including the hand-computed WCAG contrast ratios, in ADR-019.
+
+### What was verified, and how
+- `npm run lint`: clean. `npm run build`: clean — all new routes (`/privacy`, `/terms`, `/refund-policy`, `/robots.txt`, `/sitemap.xml`) compiled and appear in the route table.
+- Started the real dev server against the real backend and curl'd every new route: legal pages 200, `/robots.txt` content matches the intended rules, `/sitemap.xml` correctly pulls real product slugs live from the database, and a real product page's `<title>` tag confirmed showing the actual product name instead of the generic site title.
+- Checked this Next.js version's actual installed type definitions (`node_modules/next/dist/lib/metadata/types/`) before writing `robots.ts`'s array `allow`/`disallow` syntax, rather than assuming from general Next.js knowledge — this repo's `AGENTS.md` explicitly warns this version may differ from training data.
+
+### What is unverified / explicitly deferred
+- Legal page content still needs Zee's actual review/approval — these are drafts, not legal advice, and he hasn't read them yet.
+- No manual screen-reader pass (NVDA/VoiceOver) — this was a code-level audit plus hand-computed contrast ratios, not a substitute for a real assistive-tech click-through.
+- M8 PR not yet opened — in progress immediately after this entry.
