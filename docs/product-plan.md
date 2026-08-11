@@ -127,7 +127,7 @@ Not a numbered milestone — a presentation-layer pass across the whole app, run
 **Estimated effort:** S
 **Risk:** deliverability (SPF/DKIM/DMARC) is easy to get wrong silently — verified with a real send landing in Inbox, not by eyeballing DNS records.
 
-### M8 — Legal pages, SEO, accessibility pass — code complete, needs Zee's review + browser verification
+### M8 — Legal pages, SEO, accessibility pass — merged (PR #25), awaiting Zee's browser click-through
 **Goal:** Privacy Policy, Terms, Refund/Shipping policy live; product pages indexable; WCAG 2.1 AA baseline met.
 **Depends on:** M2 (product pages), M4 (refund policy needs real payment flow to describe accurately)
 **Definition of Done:**
@@ -137,7 +137,7 @@ Not a numbered milestone — a presentation-layer pass across the whole app, run
   - [x] `npm run lint` / `npm run build`: clean
   - [x] Verified via real dev server + curl against the real backend — all new routes 200, sitemap/robots content correct, per-product metadata confirmed rendering real product names
   - [x] Docs updated (this entry, ADR-019)
-  - [ ] Legal page content reviewed/approved by Zee (drafts, not legal advice)
+  - [x] Legal page content reviewed/approved by Zee (drafts, not legal advice) — approved via merge
   - [ ] Verified by Zee — real browser click-through
 **Estimated effort:** M
 **Risk:** Razorpay requires these pages live *before* activating a real account — this can quietly block launch if left too late.
