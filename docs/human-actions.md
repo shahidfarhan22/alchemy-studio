@@ -42,7 +42,7 @@ Things only Zee can do. Status: `pending` / `done` / `blocked`.
 
 | # | Action | Why | Status |
 |---|---|---|---|
-| 11 | Review and approve draft legal pages (Privacy Policy, Terms, Refund/Shipping policy) — I will draft them, clearly labelled as drafts, not legal advice | Razorpay requires these live before activating a real account. | pending |
+| 11 | Review and approve the drafted legal pages (Privacy Policy, Terms, Refund/Shipping policy) — drafts, not legal advice. Live at `/privacy`, `/terms`, `/refund-policy` on branch `feat/m8-legal-seo-a11y` (PR not yet opened) | Razorpay requires these live before activating a real account. | ready for review |
 | 12 | ~~Purchase domain~~ | `alchemystudios.co.in` purchased. | done |
 | 13 | Create accounts for chosen hosting/DB/monitoring providers (decided at M9) — email is now handled at #19-21 above | I'll tell you exactly which ones and why before you sign up — not yet, to avoid abandoned trial accounts. | pending |
 | 14 | Enter final DNS records at the registrar for the production deploy (I'll generate the exact records; you enter them) — separate from the email subdomain records at #19/#20, done already | Only you have registrar access. | pending |

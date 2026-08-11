@@ -127,9 +127,18 @@ Not a numbered milestone — a presentation-layer pass across the whole app, run
 **Estimated effort:** S
 **Risk:** deliverability (SPF/DKIM/DMARC) is easy to get wrong silently — verified with a real send landing in Inbox, not by eyeballing DNS records.
 
-### M8 — Legal pages, SEO, accessibility pass
+### M8 — Legal pages, SEO, accessibility pass — code complete, needs Zee's review + browser verification
 **Goal:** Privacy Policy, Terms, Refund/Shipping policy live; product pages indexable; WCAG 2.1 AA baseline met.
 **Depends on:** M2 (product pages), M4 (refund policy needs real payment flow to describe accurately)
+**Definition of Done:**
+  - [x] Legal pages built: `/privacy`, `/terms`, `/refund-policy`, all with the required grievance-officer block, linked from the site footer. Content reflects real, Zee-confirmed policy decisions (no returns except defect/damage on catalog items; no refunds on accepted custom orders except non-delivery/defect; domestic shipping, no separate shipping fee — verified against actual code, not assumed).
+  - [x] SEO: real per-product `<title>`/description metadata (previously every product page shared the generic site title), `sitemap.xml` (static routes + live product slugs), `robots.txt`, Open Graph/Twitter defaults.
+  - [x] Accessibility: audited what the Vault pass already covered (focus rings, aria-invalid, alt text, aria-live), fixed the two real gaps found — skip-to-content link, labeled nav landmarks. Contrast ratios spot-checked by hand against WCAG AA.
+  - [x] `npm run lint` / `npm run build`: clean
+  - [x] Verified via real dev server + curl against the real backend — all new routes 200, sitemap/robots content correct, per-product metadata confirmed rendering real product names
+  - [x] Docs updated (this entry, ADR-019)
+  - [ ] Legal page content reviewed/approved by Zee (drafts, not legal advice)
+  - [ ] Verified by Zee — real browser click-through
 **Estimated effort:** M
 **Risk:** Razorpay requires these pages live *before* activating a real account — this can quietly block launch if left too late.
 
