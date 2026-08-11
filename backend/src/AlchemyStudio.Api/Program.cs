@@ -6,6 +6,7 @@ using AlchemyStudio.Api.Catalog;
 using AlchemyStudio.Api.Cart;
 using AlchemyStudio.Api.CustomOrders;
 using AlchemyStudio.Api.Data;
+using AlchemyStudio.Api.Emails;
 using AlchemyStudio.Api.ErrorHandling;
 using AlchemyStudio.Api.Orders;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -68,6 +69,7 @@ builder.Services.AddScoped<AddressService>();
 builder.Services.AddScoped<RazorpayService>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<CustomOrderService>();
+builder.Services.AddHttpClient<EmailService>(client => client.BaseAddress = new Uri("https://api.resend.com/"));
 
 var jwtSigningKey = builder.Configuration["Jwt:SigningKey"]
     ?? throw new InvalidOperationException("Jwt:SigningKey is not configured. See AGENTS.md.");
