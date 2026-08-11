@@ -6,7 +6,7 @@
 - M5 (custom orders + quoting) — both backend and frontend merged (ADR-016). Awaiting Zee's browser sign-off.
 - M6 (admin order management, fulfillment, refunds, dashboard) — backend and frontend both code-complete and merged (ADR-017), backend verified against the real Razorpay test API. Awaiting Zee's browser sign-off.
 - M7 (transactional emails via Resend) — ✅ DONE and merged. Real domain + SPF/DKIM/DMARC live, all three email types verified landing in Zee's real inbox (ADR-018).
-- M8 (legal pages, SEO, accessibility) — merged (PR #25, ADR-019). Legal page content approved by Zee. Awaiting a real browser click-through.
+- M8 (legal pages, SEO, accessibility) — ✅ DONE. Merged (PR #25, ADR-019), legal content approved and browser-verified by Zee.
 - Razorpay live-mode KYC — in progress (Zee started it independently of the milestone sequence, since it has real turnaround lag and doesn't block M8/M9 work).
 
 ## Environment
