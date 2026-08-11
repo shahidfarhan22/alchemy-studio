@@ -113,11 +113,19 @@ Not a numbered milestone — a presentation-layer pass across the whole app, run
 **Estimated effort:** M
 **Risk:** every admin action needs a real server-side authorization check — never a hidden button. Real money movement (refunds) needed the same rigor as M4's payment capture work — see ADR-017 for the two real bugs caught via live data during verification (a fulfillment guard that misread legacy paid orders as unpaid, and a dashboard metric that undercounted them for the same reason).
 
-### M7 — Emails / notifications
+### M7 — Emails / notifications — done, verified by Zee
 **Goal:** order confirmation, custom-order quote-ready, and shipping-update emails send reliably and don't land in spam.
 **Depends on:** M4, M5
+**Definition of Done:**
+  - [x] Feature works end-to-end — real domain (`alchemystudios.co.in`) + dedicated sending subdomain, real SPF/DKIM/DMARC DNS records, verified in Resend's dashboard. All three email types (order confirmation, quote-ready, shipping-update) sent for real and confirmed landing in Zee's actual Gmail inbox, in Inbox not Spam. Full detail in ADR-018.
+  - [x] Backend only — no new frontend UI needed, emails fire automatically from existing order/quote/fulfillment state transitions.
+  - [x] Automated tests — `dotnet test` 21/21 passing (no new tests added; email sending is best-effort/non-blocking by design, same integration-test-DB gap as every prior milestone)
+  - [x] Error handling — unconfigured or failing email sends log and no-op rather than breaking the real order/quote state transition they're attached to (ADR-018)
+  - [x] No new lint/type errors
+  - [x] Docs updated (this entry, ADR-018)
+  - [x] Verified by Zee — how: confirmed real receipt of all three email types in his own Gmail inbox, including one triggered via a hand-signed webhook against a real pre-existing order
 **Estimated effort:** S
-**Risk:** deliverability (SPF/DKIM/DMARC) is easy to get wrong silently — verify with a mail tester, not by eyeballing it.
+**Risk:** deliverability (SPF/DKIM/DMARC) is easy to get wrong silently — verified with a real send landing in Inbox, not by eyeballing DNS records.
 
 ### M8 — Legal pages, SEO, accessibility pass
 **Goal:** Privacy Policy, Terms, Refund/Shipping policy live; product pages indexable; WCAG 2.1 AA baseline met.

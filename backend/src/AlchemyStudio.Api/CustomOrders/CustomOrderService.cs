@@ -1,12 +1,16 @@
 using AlchemyStudio.Api.Data;
+using AlchemyStudio.Api.Emails;
 using AlchemyStudio.Api.ErrorHandling;
 using AlchemyStudio.Api.Orders;
 using Microsoft.EntityFrameworkCore;
 
 namespace AlchemyStudio.Api.CustomOrders;
 
-public class CustomOrderService(AppDbContext db, OrderService orderService)
+public class CustomOrderService(AppDbContext db, OrderService orderService, EmailService email, IConfiguration configuration)
 {
+    // Same config key CORS/OrderService already read (Program.cs).
+    private string FrontendBaseUrl => configuration["Cors:AllowedOrigin"]!;
+
     // Fixed expiry window (product decision, see docs/decisions.md) --
     // deliberately NOT enforced by a background sweep (this app has no
     // scheduled-job infrastructure). Instead, "Expired" is computed lazily
@@ -89,6 +93,14 @@ public class CustomOrderService(AppDbContext db, OrderService orderService)
         await db.SaveChangesAsync();
 
         var user = await db.Users.FindAsync(entity.UserId);
+        if (user?.Email is not null)
+        {
+            await email.SendAsync(
+                user.Email,
+                "Your quote is ready",
+                EmailTemplates.QuoteReady(entity.Description, entity.QuotedPriceInPaise!.Value, "INR", entity.QuoteNote, entity.QuoteExpiresAt, entity.Id, FrontendBaseUrl));
+        }
+
         return ToAdminDto(entity, user?.Email ?? "(unknown)", user?.DisplayName ?? "(unknown)");
     }
 

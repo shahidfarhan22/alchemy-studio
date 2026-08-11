@@ -460,3 +460,23 @@ I have a slight preference for (a) since ephemeral per-run databases are cleaner
 ### What is unverified / explicitly deferred
 - Real interactive browser verification — same structural gap as every prior frontend milestone. Zee needs to click through: view the orders list, open a real order, advance its fulfillment status, and (carefully, since this is real money) trigger an actual test-mode refund on a real paid test order and watch it settle to Refunded once the webhook lands. Also worth eyeballing the dashboard charts render sensibly against his own real test data.
 - This completes M6 build-wise (backend PR #22 + this frontend work) — both still need Zee's sign-off before the milestone is marked fully done in `docs/product-plan.md`.
+
+## Session 2026-08-10/11 — M7: transactional emails via Resend, real domain + DNS
+
+### What changed
+- Confirmed Resend as provider and the real domain setup up front with Zee, including his explicit instruction not to defer SPF/DKIM/DMARC. Set up `send.alchemystudios.co.in` as a dedicated sending subdomain in Resend (MX/SPF/DKIM), plus a separate DMARC record — all added at the GoDaddy registrar and verified in Resend's dashboard, with Zee doing every DNS-panel click himself in real time while I explained each field.
+- New `EmailService` (wraps Resend's REST API directly via `HttpClient`, no SDK) and `EmailTemplates` (bulletproof-HTML builders for all three email types, table-based layout with inline styles and `bgcolor` attributes for Outlook, safe font fallbacks, Vault colors as hex constants since CSS custom properties don't work in email).
+- Caught and fixed a real bug before ever running the code: `EmailService`'s config was originally required at construction, which would have thrown and broken every order endpoint given the Resend secrets weren't configured yet. Made both `Resend:ApiKey`/`Resend:FromAddress` nullable, checked lazily in `SendAsync`, same fix as ADR-012's webhook-secret handling.
+- Hooked email sends into three existing state transitions, all best-effort/non-blocking (fire after `SaveChangesAsync`, catch-and-log rather than throw): `OrderService.HandlePaymentCapturedAsync` (order confirmation), `CustomOrderService.QuoteAsync` (quote-ready), `OrderService.UpdateFulfillmentAsync` (shipping update, only on `Shipped`/`Delivered`, not the automatic `Processing` transition).
+- Full detail in ADR-018.
+
+### What was verified, and how
+- Extensive real-time hand-holding through the actual Resend/GoDaddy DNS setup — screenshots back and forth confirming each field, region selection, and the "Checking DNS" → "Verified" transition.
+- Once Zee confirmed the two `dotnet user-secrets set` commands were run and the backend restarted, verified all three email types with real sends, not simulated: marked a real paid order `Shipped` (admin action) → shipping-update email confirmed in Zee's real Gmail inbox (in Inbox, not Spam) via a screenshot. Created a real test custom order request under Zee's own account and quoted it (two normal API calls) → quote-ready email confirmed received. Hand-signed a real `payment.captured` webhook against a real pre-existing `PendingPayment` order under Zee's own account → order-confirmation email confirmed received.
+- All three tests used Zee's own account as both the actor and the recipient specifically so he could confirm actual inbox delivery himself, not just a 200 response.
+- `dotnet build`: clean.
+
+### What is unverified / explicitly deferred
+- No frontend work needed or planned for M7 — emails fire automatically from existing flows, no new UI.
+- `refund.failed`-style negative-path email behavior isn't applicable here (fulfillment/quote/payment-capture don't have an equivalent "failure" email in scope).
+- M7 backend PR not yet opened — in progress immediately after this entry.

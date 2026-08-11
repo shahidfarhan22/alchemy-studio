@@ -294,3 +294,30 @@ This closes the one gap flagged throughout M4 (ADR-012's "temporary local webhoo
 - **Incidental live confirmation of the payment-capture change**: while this verification was in progress, Zee completed two real payments in the background through the actual ngrok-tunneled webhook (unprompted) — both orders correctly landed with `FulfillmentStatus: Processing` under the new code, real end-to-end proof this didn't regress, not just a hand-signed simulation.
 - `dotnet test`: 21/21 passing. `dotnet list package --vulnerable --include-transitive`: clean.
 **Date:** 2026-08-10
+
+---
+
+## ADR-018 — M7 backend: transactional emails via Resend, real domain + DNS
+
+**Context:** M7's goal — order confirmation, quote-ready, and shipping-update emails send reliably and don't land in spam. Confirmed with Zee up front: Resend as the provider, the real domain (`alchemystudios.co.in`, already purchased) rather than a sandbox, a dedicated sending subdomain so the root domain's MX/reputation stay untouched, and fully on-brand HTML matching The Vault rather than plain text — his exact instruction was "Don't defer the SPF/DKIM/DMARC work — do it properly now since the domain exists."
+
+**Domain/DNS setup, done for real, not deferred:** `send.alchemystudios.co.in` added as a sending domain in Resend, with MX, SPF (both under the `send` subdomain, shown as `send.send` in GoDaddy due to Resend's default "Custom Return-Path" value of `send`), and DKIM (`resend._domainkey.send.alchemystudios.co.in`, TXT) records added at the registrar. All three verified in Resend's dashboard. A DMARC record (`_dmarc.send.alchemystudios.co.in`, `TXT`, `v=DMARC1; p=none; rua=mailto:alchemy3dstudios@gmail.com`) was added separately — DMARC isn't part of Resend's own domain setup, it's scoped per-host and independent of any provider. From-address: `noreply@send.alchemystudios.co.in`.
+
+**`EmailService` wraps Resend's REST API directly** (`POST https://api.resend.com/emails`, bearer auth, flat JSON body) — no SDK, the request shape is a single flat object, confirmed against Resend's own docs before writing any code, same discipline as the Razorpay integrations. Caught and fixed one bug before ever running it: the constructor originally read `Resend:ApiKey`/`Resend:FromAddress` as required config, which would throw at DI-construction time and break every order-related endpoint the moment `OrderService`/`CustomOrderService` were constructed — for a feature whose domain/DNS/account setup is a real human task that takes time. Fixed by making both nullable and checked lazily inside `SendAsync` (same fix as ADR-012's RazorpayService webhook-secret handling), logging and no-op'ing when unconfigured rather than throwing.
+
+**Sending is best-effort, never blocking** — the same "a non-critical convenience feature must never break the critical path it's attached to" rule ADR-014 established for cart-merge-must-never-break-login. Every call site (`OrderService.HandlePaymentCapturedAsync`, `OrderService.UpdateFulfillmentAsync`, `CustomOrderService.QuoteAsync`) fires `email.SendAsync` *after* its own `SaveChangesAsync`, never before, and `SendAsync` itself catches and logs rather than throwing — a Resend outage or a bad address can never roll back a real order/quote state transition.
+
+**Three trigger points, one on a condition:**
+- Order confirmation: `HandlePaymentCapturedAsync`, unconditionally once an order is marked `Paid`.
+- Quote-ready: `CustomOrderService.QuoteAsync`, unconditionally once a quote is set.
+- Shipping update: `UpdateFulfillmentAsync`, **only** when the new status is `Shipped` or `Delivered` — deliberately not on the automatic `Processing` transition that fires the moment payment is captured, since that one isn't news to the customer.
+
+**Templates (`EmailTemplates.cs`) use the "bulletproof HTML email" technique**, not a naive port of the web CSS: table-based layout, inline styles, `bgcolor` HTML attributes alongside CSS `background-color` (Outlook desktop ignores the CSS-only version), and safe fallback font stacks (Georgia/Times New Roman standing in for Bodoni Moda, Arial/Helvetica for Public Sans) since custom webfonts aren't reliably loaded by email clients. Colors are the same Vault tokens as hex constants (`#0a0a0b`/`#100f10`/`#c9a227`/etc.) — can't reference CSS custom properties inside an email, so these are a manually-kept-in-sync copy of `globals.css`, called out as such in a comment.
+
+**Verified with real sends, not simulated, covering all three templates:**
+- Order confirmation: hand-signed a real `payment.captured` webhook (same technique as ADR-016/017, using the currently-configured local test webhook secret, not Zee's real one) against a real pre-existing `PendingPayment` order under Zee's own account. Email landed in his real Gmail inbox.
+- Quote-ready: created a real (test) custom order request under Zee's own account via the normal customer endpoint, then quoted it via the normal admin endpoint. Email landed in his inbox.
+- Shipping update: marked a real, already-`Paid` order (under Zee's own account) `Shipped` via the normal admin endpoint. Email landed in his inbox, styled correctly, in Inbox rather than Spam — direct confirmation that SPF/DKIM/DMARC are all correctly configured, not just "records present."
+- All three used Zee's own account for both the admin action and the recipient address, so each could be confirmed by him actually opening Gmail — not inferred from a 200 response alone.
+- `dotnet build`: clean.
+**Date:** 2026-08-11

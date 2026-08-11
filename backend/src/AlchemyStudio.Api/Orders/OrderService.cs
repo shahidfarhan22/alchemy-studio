@@ -1,13 +1,18 @@
 using System.Text.Json;
 using AlchemyStudio.Api.Addresses;
 using AlchemyStudio.Api.Data;
+using AlchemyStudio.Api.Emails;
 using AlchemyStudio.Api.ErrorHandling;
 using Microsoft.EntityFrameworkCore;
 
 namespace AlchemyStudio.Api.Orders;
 
-public class OrderService(AppDbContext db, RazorpayService razorpay, ILogger<OrderService> logger)
+public class OrderService(AppDbContext db, RazorpayService razorpay, EmailService email, IConfiguration configuration, ILogger<OrderService> logger)
 {
+    // Reuses the same config key CORS already reads (Program.cs) rather than
+    // inventing a second "where is the frontend" setting.
+    private string FrontendBaseUrl => configuration["Cors:AllowedOrigin"]!;
+
     public async Task<CreateOrderResponse> CreateOrderAsync(Guid userId, CreateOrderRequest request)
     {
         var cart = await db.Carts.Include(c => c.Items).FirstOrDefaultAsync(c => c.UserId == userId);
@@ -262,6 +267,16 @@ public class OrderService(AppDbContext db, RazorpayService razorpay, ILogger<Ord
 
         await db.SaveChangesAsync();
         logger.LogInformation("Order {OrderId} marked Paid, stock decremented, cart cleared.", order.Id);
+
+        var buyer = await db.Users.FindAsync(order.UserId);
+        if (buyer?.Email is not null)
+        {
+            var itemsForEmail = order.Items.Select(i => (i.ProductName, i.Quantity, i.LineTotalInPaise)).ToList();
+            await email.SendAsync(
+                buyer.Email,
+                "Your order is confirmed",
+                EmailTemplates.OrderConfirmation(itemsForEmail, order.SubtotalInPaise, order.Currency, order.Id, FrontendBaseUrl));
+        }
     }
 
     // Admin-triggered refunds (M6) are initiated via RefundOrderAsync below,
@@ -364,6 +379,20 @@ public class OrderService(AppDbContext db, RazorpayService razorpay, ILogger<Ord
         if (!string.IsNullOrWhiteSpace(request.Carrier)) order.Carrier = request.Carrier.Trim();
         order.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
+
+        // Processing is the automatic starting point, not something worth a
+        // "shipping update" email -- only Shipped/Delivered are real news.
+        if (request.Status is FulfillmentStatus.Shipped or FulfillmentStatus.Delivered)
+        {
+            var buyer = await db.Users.FindAsync(order.UserId);
+            if (buyer?.Email is not null)
+            {
+                await email.SendAsync(
+                    buyer.Email,
+                    request.Status == FulfillmentStatus.Shipped ? "Your order has shipped" : "Your order has been delivered",
+                    EmailTemplates.ShippingUpdate(request.Status.ToString(), order.TrackingNumber, order.Carrier, order.Id, FrontendBaseUrl));
+            }
+        }
 
         return await GetOrderForAdminAsync(orderId);
     }

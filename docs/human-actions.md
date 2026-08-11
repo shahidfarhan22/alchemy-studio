@@ -30,14 +30,22 @@ Things only Zee can do. Status: `pending` / `done` / `blocked`.
 | 17 | Sign up for Razorpay, generate **test-mode** API keys (Key ID + Key Secret), store via `dotnet user-secrets` | Needed to build/test M4 payment flow — no KYC required for test mode. | done — `Razorpay:KeyId`/`Razorpay:KeySecret` set, order creation verified end-to-end against the real Razorpay test API |
 | 18 | Set up `ngrok` (or similar tunnel) to expose local backend, then configure a webhook in the Razorpay dashboard pointing at it; store the real webhook secret via `dotnet user-secrets set "Razorpay:WebhookSecret" "..."` | The webhook is how a real payment confirmation reaches us — currently only tested with a temporary, made-up local secret (see ADR-012), not a real Razorpay-issued one. | done — real `ngrok` tunnel + real webhook registered, verified with a genuine Razorpay-initiated `payment.captured` event (see ADR-013) |
 
+## Needed before M7 (Emails)
+
+| # | Action | Why | Status |
+|---|---|---|---|
+| 19 | Create a Resend account, add `send.alchemystudios.co.in` as a sending domain in the Resend dashboard, and add the MX/SPF/DKIM records it generates at the registrar under that subdomain | Resend generates the exact record values uniquely per domain — I can't pre-generate these, only tell you what to expect and where. Root domain's existing MX records stay untouched since this is scoped to a subdomain. | done — domain shows Verified in Resend |
+| 20 | Add a DMARC record: TXT at `_dmarc.send.alchemystudios.co.in`, value `v=DMARC1; p=none; rua=mailto:alchemy3dstudios@gmail.com` | Independent of Resend's own records — completes the SPF/DKIM/DMARC trio this milestone explicitly flags as a deliverability risk if skipped. | done |
+| 21 | Get a Resend API key and store it via `dotnet user-secrets set "Resend:ApiKey" "..."` and `dotnet user-secrets set "Resend:FromAddress" "Alchemy Studio <noreply@send.alchemystudios.co.in>"` | Needed for the backend to actually call Resend's API. Only works once the domain above shows Verified. | done — verified via real test sends landing in inbox, see ADR-018 |
+
 ## Needed before M8 (Legal/SEO) / M10 (Launch)
 
 | # | Action | Why | Status |
 |---|---|---|---|
 | 11 | Review and approve draft legal pages (Privacy Policy, Terms, Refund/Shipping policy) — I will draft them, clearly labelled as drafts, not legal advice | Razorpay requires these live before activating a real account. | pending |
-| 12 | Purchase domain (once name is chosen) — on your own account, your own payment method | Never mine. Registrar lock + auto-renew should be enabled once bought. | pending |
-| 13 | Create accounts for chosen hosting/DB/email/monitoring providers (decided at M9) | I'll tell you exactly which ones and why before you sign up — not yet, to avoid abandoned trial accounts. | pending |
-| 14 | Enter final DNS records at the registrar (I'll generate the exact records; you enter them) | Only you have registrar access. | pending |
+| 12 | ~~Purchase domain~~ | `alchemystudios.co.in` purchased. | done |
+| 13 | Create accounts for chosen hosting/DB/monitoring providers (decided at M9) — email is now handled at #19-21 above | I'll tell you exactly which ones and why before you sign up — not yet, to avoid abandoned trial accounts. | pending |
+| 14 | Enter final DNS records at the registrar for the production deploy (I'll generate the exact records; you enter them) — separate from the email subdomain records at #19/#20, done already | Only you have registrar access. | pending |
 | 15 | Complete Razorpay's live-mode requirements: Terms/Privacy/Refund pages live, business details | Required before any real (non-test) payment can be accepted. | pending |
 
 ## Things I will never do (per MASTER-PROMPT.md §0.1)
